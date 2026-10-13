@@ -56,3 +56,7 @@ To use `shop.yourdomain.com`, acquire a domain, configure wildcard DNS and HTTPS
 ## Current limitations
 
 No email verification, password reset email, payment gateway, subscription billing, shipping integration, custom-domain provisioning, or managed database integration. Use your own uploaded photographs; the demo storefront's illustrations and products are examples, not actual inventory. Render account linking and deployment need to be completed by the account owner. The tests validate the local implementation; they do not establish live hosting or DNS readiness.
+
+### Browser regression checks
+
+Run `npm run test:browser` after installing Chromium with `npx playwright install chromium`, or set `CHROMIUM_PATH` to an existing Chromium executable. The browser tests use their own temporary database and verify signed-in owner/admin navigation, login/signup redirects, reloads, a second tab, language switching and logout. The tests never use production accounts or data. Playwright is a development dependency only.
