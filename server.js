@@ -27,7 +27,19 @@ function login(res,u){const token=randomBytes(32).toString('hex');db.prepare('IN
 const limits=new Map();
 function rate(req,key,max=15){const k=key+':'+(req.socket.remoteAddress||'');const now=Date.now();let r=limits.get(k);if(!r||r.until<now)r={n:0,until:now+900000};if(++r.n>max)fail('Too many attempts. Please try again in 15 minutes.',429);limits.set(k,r);if(limits.size>10000)for(const [k,r]of limits)if(r.until<now)limits.delete(k);}
 const allowedSections=['hero','categories','featured','offers','about','reviews','benefits','contact'];
-function details(d){if(!d||typeof d.name!=='string'||!d.name.trim()||d.name.length>100)fail('Store name is required (maximum 100 characters).');if(!/^\+?[0-9 ()-]{10,20}$/.test(d.whatsapp||''))fail('Enter a valid WhatsApp number with country code.');if(!Number.isFinite(Number(d.delivery))||Number(d.delivery)<0||Number(d.delivery)>100000)fail('Enter valid delivery charges.');for(const key of ['logo','banner'])if(d[key]&&!imageValid(d[key]))fail('Use an uploaded image or an HTTPS image URL.');for(const key of ['instagram','facebook','website'])if(d[key]&&!/^https:\/\//.test(d[key]))fail('Social links must use HTTPS URLs.');return Object.fromEntries(['name','description','category','whatsapp','address','logo','banner','instagram','facebook','website','returns','deliveryInfo','accent','delivery'].map(k=>[k,k==='delivery'?Number(d[k]):String(d[k]||'').slice(0,5000)]));}
+function normalizeSocialLink(value){
+  const raw=String(value??'').trim();
+  if(!raw)return '';
+  const invalid=()=>fail('Enter a valid social or website link, for example instagram.com/yourname.');
+  if(raw.length>2000||/\s|\\/.test(raw))invalid();
+  let candidate=raw;
+  if(candidate.startsWith('//'))candidate='https:'+candidate;
+  else if(!/^[a-z][a-z0-9+.-]*:/i.test(candidate))candidate='https://'+candidate;
+  let url;try{url=new URL(candidate)}catch{invalid()}
+  if(!['https:','http:'].includes(url.protocol)||url.username||url.password||!url.hostname.includes('.')||url.hostname.startsWith('.')||url.hostname.endsWith('.')||!url.hostname.split('.').every(part=>/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/i.test(part)))invalid();
+  return url.href;
+}
+function details(d){if(!d||typeof d.name!=='string'||!d.name.trim()||d.name.length>100)fail('Store name is required (maximum 100 characters).');if(!/^\+?[0-9 ()-]{10,20}$/.test(d.whatsapp||''))fail('Enter a valid WhatsApp number with country code.');if(!Number.isFinite(Number(d.delivery))||Number(d.delivery)<0||Number(d.delivery)>100000)fail('Enter valid delivery charges.');for(const key of ['logo','banner'])if(d[key]&&!imageValid(d[key]))fail('Use an uploaded image or an HTTPS image URL.');const social=Object.fromEntries(['instagram','facebook','website'].map(key=>[key,normalizeSocialLink(d[key])]));return Object.fromEntries(['name','description','category','whatsapp','address','logo','banner','instagram','facebook','website','returns','deliveryInfo','accent','delivery'].map(k=>[k,k==='delivery'?Number(d[k]):Object.hasOwn(social,k)?social[k]:String(d[k]||'').slice(0,5000)]));}
 function sections(s){if(!Array.isArray(s)||s.length<1||s.length>8||new Set(s.map(x=>x.type)).size!==s.length||s.some(x=>!allowedSections.includes(x.type)||![1,2,3].includes(x.layout)))fail('Select between 1 and 8 valid sections.');return s.map(x=>({type:x.type,layout:x.layout,title:String(x.title||'').slice(0,150),text:String(x.text||'').slice(0,5000)}));}
 async function api(req,res,path,b){const u=sessionUser(req);const auth=()=>{if(!u)fail('Please sign in.',401);return u};const owner=()=>{const s=storeFor(auth());if(!s)fail('Store not found.',404);return s};const admin=()=>{if(auth().role!=='admin')fail('Admin access required.',403)};
 if(path==='/api/site'&&req.method==='GET'){const domain=process.env.BASE_DOMAIN,host=(req.headers.host||'').split(':')[0];return {slug:domain&&host.endsWith('.'+domain)?host.slice(0,-domain.length-1):null};}

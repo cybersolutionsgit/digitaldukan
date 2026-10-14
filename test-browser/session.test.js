@@ -112,6 +112,8 @@ test('signup and editor previews show real layouts and persist a preview selecti
   await page.locator('[name=slug]').fill('layout-shop');
   await page.locator('[name=name]').fill('Layout Shop');
   await page.locator('[name=whatsapp]').fill('923001234567');
+  await page.locator('[name=instagram]').fill('insta.com/abc');
+  await page.locator('[name=facebook]').fill('facebook.com/layoutshop');
   await page.getByRole('button',{name:'Continue'}).click();
   await page.locator('.preview-canvas .store-hero').first().waitFor({state:'attached'});
   assert.equal(await page.locator('.layout-choice').count(),24);
@@ -149,8 +151,18 @@ test('signup and editor previews show real layouts and persist a preview selecti
   await page.screenshot({path:'/tmp/digitaldukan-section-previews.png',fullPage:true});
   const session=await (await context.request.get(base+'/api/session')).json();
   assert.equal(session.store.sections.find(x=>x.type==='hero').layout,2);
+  assert.equal(session.store.details.instagram,'https://insta.com/abc');
+  assert.equal(session.store.details.facebook,'https://facebook.com/layoutshop');
+  await page.getByRole('button',{name:'Store details',exact:false}).click();
+  await page.locator('[name=website]').fill('example.com/myshop');
+  const detailsSaved=page.waitForResponse(r=>r.url()===base+'/api/store'&&r.request().method()==='PATCH');
+  await page.getByRole('button',{name:'Save store details'}).click();
+  assert.equal((await detailsSaved).status(),200);
+  await page.waitForFunction(()=>document.querySelector('[name=website]')?.value==='https://example.com/myshop');
+  assert.equal(await page.locator('[name=website]').inputValue(),'https://example.com/myshop');
   await page.goto(base+'/s/layout-shop');
   await page.locator('.store-hero.store-layout-2').waitFor();
+  assert.equal(await page.getByRole('link',{name:'instagram',exact:false}).getAttribute('href'),'https://insta.com/abc');
   assert.deepEqual(errors,[]);
   await context.close();
 });

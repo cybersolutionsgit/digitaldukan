@@ -55,3 +55,18 @@ await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Re
 let r=await request('/api/login','POST',{email:'owner@example.com',password});assert.equal(r.status,200);
 r=await request('/api/orders','GET',undefined,r.cookie);assert.equal(r.data.length,1);assert.equal(r.data[0].status,'Delivered');
 });
+
+test('scheme-less social links normalize on signup and updates; unsafe links are rejected', async () => {
+ const signup={email:'links@example.com',password,slug:'links-shop',subscribed:true,
+  details:{name:'Link Shop',whatsapp:'923001234567',delivery:200,instagram:'  insta.com/abc  ',facebook:'facebook.com/myshop',website:'https://example.com/shop?ref=dukan'},sections:[{type:'contact',layout:1}]};
+ let r=await request('/api/signup','POST',signup);assert.equal(r.status,200);const cookie=r.cookie;
+ r=await request('/api/session','GET',undefined,cookie);let details=r.data.store.details;
+ assert.equal(details.instagram,'https://insta.com/abc');assert.equal(details.facebook,'https://facebook.com/myshop');assert.equal(details.website,'https://example.com/shop?ref=dukan');
+ r=await request('/api/store','PATCH',{details:{...details,instagram:'',facebook:'//www.facebook.com/updated',website:'example.org/new'},sections:signup.sections},cookie);assert.equal(r.status,200);
+ r=await request('/api/session','GET',undefined,cookie);details=r.data.store.details;
+ assert.equal(details.instagram,'');assert.equal(details.facebook,'https://www.facebook.com/updated');assert.equal(details.website,'https://example.org/new');
+ for(const bad of ['javascript:alert(1)','data:text/html,hello','not a link','https://user:pass@example.com','instagram']){
+  r=await request('/api/store','PATCH',{details:{...details,website:bad},sections:signup.sections},cookie);assert.equal(r.status,400,bad);
+ }
+ r=await request('/api/session','GET',undefined,cookie);assert.equal(r.data.store.details.website,'https://example.org/new');
+});
