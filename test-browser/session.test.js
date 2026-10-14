@@ -166,3 +166,38 @@ test('signup and editor previews show real layouts and persist a preview selecti
   assert.deepEqual(errors,[]);
   await context.close();
 });
+
+test('blocked forms show temporary top errors for validation, server and connection failures', async () => {
+ const context=await browser.newContext({viewport:{width:390,height:844}});
+ const page=await context.newPage();
+ await page.goto(base+'/login');
+ await page.locator('#login-form').waitFor();
+ await page.clock.install();
+ await page.getByRole('button',{name:'Sign in',exact:false}).click();
+ await page.locator('#toast.error.show').waitFor();
+ assert.match(await page.locator('.toast-message').innerText(),/Email address/);
+ const box=await page.locator('#toast').boundingBox();assert.ok(box.y>=0&&box.y<50);
+ await page.clock.runFor(1);
+ await page.locator('[name=email]').fill('owner@example.com');
+ await page.locator('[name=password]').fill('Incorrect-password');
+ await page.getByRole('button',{name:'Sign in',exact:false}).click();
+ await page.waitForFunction(()=>document.querySelector('.toast-message').textContent==='Email or password is incorrect.');
+ assert.equal(await page.locator('#toast').getAttribute('role'),'alert');
+ assert.match(await page.locator('.form-error').innerText(),/Email or password is incorrect/);
+ await page.clock.fastForward(4000);
+ await page.route(base+'/api/login',route=>route.abort('failed'));
+ await page.getByRole('button',{name:'Sign in',exact:false}).click();
+ await page.waitForFunction(()=>document.querySelector('.toast-message').textContent.startsWith('Unable to connect.'));
+ await page.clock.fastForward(3000);
+ assert.equal(await page.locator('#toast.error.show').count(),1,'previous notification timer cannot hide the newer error');
+ await page.clock.fastForward(3501);
+ assert.equal(await page.locator('#toast.show').count(),0,'error auto-dismisses after 6.5 seconds');
+ await page.unroute(base+'/api/login');
+ await page.route(base+'/api/login',route=>route.fulfill({status:502,contentType:'text/html',body:'Bad gateway'}));
+ await page.getByRole('button',{name:'Sign in',exact:false}).click();
+ await page.waitForFunction(()=>document.querySelector('.toast-message').textContent.includes('unexpected response'));
+ await page.getByRole('button',{name:'Dismiss notification'}).click();
+ assert.equal(await page.locator('#toast.show').count(),0);
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+ await context.close();
+});
