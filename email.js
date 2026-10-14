@@ -42,5 +42,18 @@ export async function sendAccountEmail({ to, kind, token, dataDir }) {
   } catch {
     throw new Error('Email delivery is temporarily unavailable. Please try again shortly.');
   }
-  if (!response.ok) throw new Error('The email provider could not accept this email. Ask the administrator to check the sender and email service settings.');
+  if (!response.ok) {
+    let details;try { details=await response.json(); } catch { details={}; }
+    const message=typeof details?.message==='string'?details.message:'';
+    // Classify provider diagnostics, but never forward raw messages or request data.
+    if(/only send testing emails|testing emails.*(?:your own|account).*email/i.test(message))
+      throw new Error('Resend testing emails can only go to your Resend account email. To verify a different store-owner email, verify your sender domain in Resend and update MAIL_FROM.');
+    if(/domain.*not verified|domain.*is not.*verified|verify.*(?:your|a) domain/i.test(message))
+      throw new Error('Your email sender domain is not verified in Resend. Verify the domain and use its sender address in MAIL_FROM.');
+    if(response.status===401||/invalid.*api.?key|api.?key.*invalid/i.test(message))
+      throw new Error('Resend did not accept the API key. Check RESEND_API_KEY in Railway and deploy the saved variables.');
+    if(response.status===429)
+      throw new Error('Resend email sending limit reached. Check your Resend usage and try again after its limit resets.');
+    throw new Error('Resend rejected this email (HTTP '+response.status+'). Check API key sending access, MAIL_FROM, and recipient eligibility.');
+  }
 }
