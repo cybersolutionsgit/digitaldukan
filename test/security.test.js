@@ -119,3 +119,28 @@ test('one store owner cannot alter another store, products or orders',async()=>{
  r=await request('/api/products','POST',{name:{bad:true},price:1,images:[]},other);assert.equal(r.status,400);
  r=await request('/api/checkout','POST',{slug:'secure-shop',name:'Customer',phone:'03001234567',address:'Lahore',items:[null]});assert.equal(r.status,400);
 });
+
+test('reset allows ten per window, rejects cooldown without consuming quota, and ignores obsolete policy counters',async()=>{
+ clearRates();const email='rate-policy@example.com';
+ const key=(name,subject)=>createHash('sha256').update(name+':'+subject).digest('hex');
+ database(db=>{for(const name of ['forgot-email','forgot-cooldown'])db.prepare('INSERT INTO rate_limits VALUES(?,?,?)').run(key(name,email),99,Date.now()+900000)});
+ const requestReset=()=>fetch(base+'/api/auth/forgot-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});
+ let response=await requestReset();assert.equal(response.status,200,'previous limit does not block the new policy');
+ for(let i=0;i<4;i++){
+  response=await requestReset();assert.equal(response.status,429);
+  assert.ok(Number(response.headers.get('retry-after'))<=60);
+  assert.match((await response.json()).error,/try again in .*(seconds|minute)/);
+ }
+ assert.equal(database(db=>db.prepare('SELECT count FROM rate_limits WHERE key=?').get(key('forgot-email-v2',email)).count),1);
+ for(let i=1;i<10;i++){
+  database(db=>db.prepare('UPDATE rate_limits SET expires=? WHERE key=?').run(Date.now()-1,key('forgot-cooldown-v2',email)));
+  response=await requestReset();assert.equal(response.status,200,'accepted request '+(i+1));
+ }
+ database(db=>db.prepare('UPDATE rate_limits SET expires=? WHERE key=?').run(Date.now()-1,key('forgot-cooldown-v2',email)));
+ response=await requestReset();assert.equal(response.status,429);
+ assert.ok(Number(response.headers.get('retry-after'))>60);
+ assert.match((await response.json()).error,/minutes/);
+ await stop();await start();response=await requestReset();assert.equal(response.status,429,'new quota survives restart');
+ database(db=>db.exec('UPDATE rate_limits SET expires=0'));
+ response=await requestReset();assert.equal(response.status,200,'expired windows allow another request');
+});

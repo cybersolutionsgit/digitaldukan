@@ -79,6 +79,7 @@ Signup attempts to send a verification email after creating the account. If deli
 - `/forgot-password` requests recovery with a generic response for unknown/known accounts.
 - `/reset-password#token=…` lets the recipient set a new password; all previous sessions and links are revoked.
 - `/verify-email#token=…` confirms the email through an explicit button.
+- Reset requests allow one accepted request per minute and ten per email in a 15-minute window. Rejected cooldown attempts do not consume the longer-window allowance; errors include remaining wait time. The separate shared abuse limit remains in place.
 - Reset links expire after 30 minutes; verification links after 24 hours. New successfully delivered links replace earlier links of the same type.
 
 The code does not print secret keys or recovery links. `EMAIL_TRANSPORT=test` only works with `NODE_ENV=test` and writes private test fixtures under DATA_DIR/test-outbox. Never use test mode for your public service. Real delivery must be tested with the configured sender and an allowed inbox before launch.
