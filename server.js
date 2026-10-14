@@ -16,7 +16,8 @@ CREATE TABLE IF NOT EXISTS orders(id TEXT PRIMARY KEY,store_id TEXT REFERENCES s
 CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY,user_id TEXT REFERENCES users(id),expires INTEGER);
 CREATE TABLE IF NOT EXISTS auth_tokens(token TEXT PRIMARY KEY,user_id TEXT REFERENCES users(id),kind TEXT,expires INTEGER);
 CREATE TABLE IF NOT EXISTS rate_limits(key TEXT PRIMARY KEY,count INTEGER,expires INTEGER);
-CREATE TABLE IF NOT EXISTS upload_usage(name TEXT PRIMARY KEY,user_id TEXT REFERENCES users(id),bytes INTEGER);`);
+CREATE TABLE IF NOT EXISTS upload_usage(name TEXT PRIMARY KEY,user_id TEXT REFERENCES users(id),bytes INTEGER);
+CREATE TABLE IF NOT EXISTS account_audit(id TEXT PRIMARY KEY,actor_id TEXT REFERENCES users(id),user_id TEXT REFERENCES users(id),action TEXT,created TEXT);`);
 if(!db.prepare('PRAGMA table_info(users)').all().some(column=>column.name==='email_verified'))db.exec('ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0');
 const cleanup=()=>{db.prepare('DELETE FROM sessions WHERE expires<?').run(Date.now());db.prepare('DELETE FROM auth_tokens WHERE expires<?').run(Date.now());db.prepare('DELETE FROM rate_limits WHERE expires<?').run(Date.now());};
 for(const name of ['digitaldukan.sqlite-wal','digitaldukan.sqlite-shm'])if(statSync(join(dir,name),{throwIfNoEntry:false}))chmodSync(join(dir,name),0o600);
@@ -147,6 +148,31 @@ if(path==='/api/products'&&req.method==='POST'){const s=owner(),p=b; if(typeof p
 if(path.startsWith('/api/products/')&&req.method==='DELETE'){const s=owner();db.prepare('DELETE FROM products WHERE id=? AND store_id=?').run(path.split('/').pop(),s.id);return {ok:true};}
 if(path==='/api/orders'&&req.method==='GET'){const s=owner();return db.prepare('SELECT * FROM orders WHERE store_id=? ORDER BY created DESC').all(s.id).map(parse);}
 if(path.startsWith('/api/orders/')&&req.method==='PATCH'){const s=owner();if(!['New','Confirmed','Delivered','Cancelled'].includes(b.status))fail('Invalid order status.');if(!db.prepare('UPDATE orders SET status=? WHERE id=? AND store_id=?').run(b.status,path.split('/').pop(),s.id).changes)fail('Order not found.',404);return {ok:true};}
+const recoveryPath=path.match(/^\/api\/admin\/stores\/([a-f0-9]{24})\/account$/);
+if(recoveryPath&&req.method==='POST'){
+ admin();rate(req,'admin-account-recovery',10,900000,u.id);
+ if(typeof b.adminPassword!=='string'||b.adminPassword.length>128||!verify(b.adminPassword,u.password))fail('Your admin password is incorrect. Confirm your current admin password.',403);
+ const target=db.prepare("SELECT users.* FROM users JOIN stores ON stores.user_id=users.id WHERE stores.id=? AND users.role='owner'").get(recoveryPath[1]);
+ if(!target)fail('Store owner not found.',404);
+ const email=b.email===undefined?target.email:String(b.email).trim().toLowerCase();
+ if(!emailValid(email))fail('Enter a valid owner email address.');
+ const emailChanged=email!==target.email,passwordChanged=b.newPassword!==undefined&&b.newPassword!=='';
+ if(passwordChanged&&(typeof b.newPassword!=='string'||b.newPassword.length<8||b.newPassword.length>128))fail('Owner password must have 8–128 characters.');
+ if(passwordChanged&&b.confirmPassword!==b.newPassword)fail('The two owner passwords do not match.');
+ if(!emailChanged&&!passwordChanged)fail('Enter a different email or a new password to save changes.');
+ if(emailChanged&&db.prepare('SELECT id FROM users WHERE email=? AND id<>?').get(email,target.id))fail('This email already belongs to another account.');
+ const password=passwordChanged?hash(b.newPassword):target.password;
+ db.exec('BEGIN');try{
+  db.prepare('UPDATE users SET email=?,password=?,email_verified=? WHERE id=?').run(email,password,emailChanged?0:target.email_verified,target.id);
+  db.prepare('DELETE FROM sessions WHERE user_id=?').run(target.id);
+  db.prepare('DELETE FROM auth_tokens WHERE user_id=?').run(target.id);
+  for(const action of [emailChanged?'email_changed':null,passwordChanged?'password_reset':null].filter(Boolean))db.prepare('INSERT INTO account_audit VALUES(?,?,?,?,?)').run(id(),u.id,target.id,action,new Date().toISOString());
+  db.exec('COMMIT');
+ }catch(error){db.exec('ROLLBACK');throw error;}
+ let verificationEmailSent=false;
+ if(emailChanged&&emailConfigured()){try{await accountEmail({id:target.id,email},'verify');verificationEmailSent=true;}catch{}}
+ return {ok:true,emailChanged,passwordChanged,verificationEmailSent,message:'Owner account updated. All previous owner sessions and account links have been revoked.'+(emailChanged?(verificationEmailSent?' Verification email sent to the new address.':' The new address needs verification; the owner can request a verification email after signing in.'):'')};
+}
 if(path==='/api/admin/stores'&&req.method==='GET'){admin();return db.prepare('SELECT stores.*, users.email, users.email_verified FROM stores JOIN users ON users.id=stores.user_id').all().map(parse);}
 if(path.startsWith('/api/admin/stores/')&&req.method==='PATCH'){admin();if(b.status==='approved'){const target=db.prepare('SELECT stores.status,users.email_verified FROM stores JOIN users ON users.id=stores.user_id WHERE stores.id=?').get(path.split('/').pop());if(target&&['pending','rejected'].includes(target.status)&&!target.email_verified)fail('The store owner must verify their email before approval.');}if(!['approved','rejected','suspended'].includes(b.status))fail('Invalid status.');if(['rejected','suspended'].includes(b.status)&&(typeof b.reason!=='string'||!b.reason.trim()))fail('Please provide a reason.');if(!db.prepare('UPDATE stores SET status=?,reason=? WHERE id=?').run(b.status,String(b.reason||'').slice(0,1000),path.split('/').pop()).changes)fail('Store not found.',404);return {ok:true};}
 if(path.startsWith('/api/public/')&&req.method==='GET'){const slug=path.split('/').pop();const row=db.prepare('SELECT * FROM stores WHERE slug=?').get(slug);if(!row)fail('Store not found.',404);if(row.status!=='approved'&&(!u||(u.id!==row.user_id&&u.role!=='admin')))fail('This store is not currently available.',403);const s=parse(row);return {store:publicStore(s),products:db.prepare('SELECT * FROM products WHERE store_id=?').all(s.id).map(parse)};}

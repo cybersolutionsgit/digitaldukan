@@ -242,3 +242,27 @@ test('admin can create and download an archive from the backup panel',async()=>{
  const download=await downloadPromise;assert.match(download.suggestedFilename(),/^dukan-.*\.tar\.gz$/);assert.equal(await download.failure(),null);
  await context.close();
 });
+
+test('admin owner account form corrects email and password and the owner can sign in again',async()=>{
+ const context=await browser.newContext();
+ const response=await context.request.post(base+'/api/login',{data:{email:'admin@example.com',password}});assert.equal(response.status(),200);
+ const page=await context.newPage();await page.goto(base+'/admin');
+ const row=page.locator('.admin-store').filter({hasText:'owner@example.com'});
+ await row.locator('[data-owner-account]').click();
+ await page.locator('#owner-account-form').waitFor();
+ await page.locator('[name=email]').fill('browser-recovered@example.com');
+ await page.locator('[name=newPassword]').fill('New-browser-recovered-789');
+ await page.locator('[name=confirmPassword]').fill('New-browser-recovered-789');
+ await page.locator('[name=adminPassword]').fill('Incorrect-admin-password');
+ await page.getByRole('button',{name:'Save owner account'}).click();
+ await page.waitForFunction(()=>document.querySelector('#owner-account-form .form-error')?.textContent.includes('admin password is incorrect'));
+ await page.locator('[name=adminPassword]').fill(password);
+ await page.getByRole('button',{name:'Save owner account'}).click();
+ await page.locator('.admin-store').filter({hasText:'browser-recovered@example.com'}).waitFor();
+ assert.equal(await page.locator('#owner-account-form').count(),0);
+ await page.locator('[data-action=logout]').click();await page.waitForURL(base+'/');
+ await page.goto(base+'/login');await page.locator('[name=email]').fill('browser-recovered@example.com');
+ await page.locator('[name=password]').fill('New-browser-recovered-789');await page.getByRole('button',{name:'Sign in',exact:false}).click();
+ await page.waitForURL(base+'/dashboard');await page.locator('.verification-notice').waitFor();
+ await context.close();
+});

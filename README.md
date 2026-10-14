@@ -103,3 +103,7 @@ To restore (an administrator/developer operation):
 4. Set `DATA_DIR=/empty/restored-data` and restart. Verify accounts, storefronts, orders and photos before removing old data.
 
 Read [the application security review](docs/SECURITY_REVIEW.md) for findings, tested protections and remaining operational requirements. The automatic-backup test deliberately waits about one minute, so `npm test` now takes longer. `npm run test:browser` covers recovery, verification and the admin backup UI in isolated data.
+
+### Admin-assisted owner account recovery
+
+In Admin → Store approvals, open **Owner account** for the correct store. Correct the email, set and confirm a new owner password (or leave password fields blank to retain it), and confirm your own current admin password. Only store-owner accounts can be changed through this endpoint. Duplicate emails are rejected, passwords are never displayed or returned, and the owner's sessions/recovery links are revoked when saving. A changed email loses its verification state and receives a verification message if delivery is configured; otherwise the owner can resend after signing in. Products, orders and store publication status stay intact. Metadata-only audit events record the acting admin, target account, action and time. When supporting real owners, confirm that the recovery request is legitimate before changing their credentials.

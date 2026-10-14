@@ -144,3 +144,29 @@ test('reset allows ten per window, rejects cooldown without consuming quota, and
  database(db=>db.exec('UPDATE rate_limits SET expires=0'));
  response=await requestReset();assert.equal(response.status,200,'expired windows allow another request');
 });
+
+test('admin recovers an owner password and changes email with reauthentication and session revocation',async()=>{
+ clearRates();const route='/api/admin/stores/'+storeId+'/account';
+ let r=await request(route,'POST',{email:'recovered@example.com',adminPassword:'Wrong-password'},ownerCookie);assert.equal(r.status,403);
+ r=await request(route,'POST',{email:'recovered@example.com',adminPassword:'Wrong-password'},adminCookie);assert.equal(r.status,403);
+ r=await request(route,'POST',{email:'admin@example.com',adminPassword:'New-admin-password-456'},adminCookie);assert.equal(r.status,400);
+ r=await request(route,'POST',{newPassword:'short',confirmPassword:'short',adminPassword:'New-admin-password-456'},adminCookie);assert.equal(r.status,400);
+ r=await request(route,'POST',{newPassword:'Recovered-owner-789',confirmPassword:'Mismatch',adminPassword:'New-admin-password-456'},adminCookie);assert.equal(r.status,400);
+ database(db=>db.prepare('INSERT INTO auth_tokens VALUES(?,?,?,?)').run(createHash('sha256').update('old-recovery-token').digest('hex'),ownerId,'reset',Date.now()+1800000));
+ r=await request(route,'POST',{newPassword:'Recovered-owner-789',confirmPassword:'Recovered-owner-789',adminPassword:'New-admin-password-456'},adminCookie);assert.equal(r.status,200);assert.equal(r.data.passwordChanged,true);assert.equal(r.data.emailChanged,false);
+ assert.ok(!JSON.stringify(r.data).includes('Recovered-owner-789'));
+ assert.equal(database(db=>db.prepare('SELECT COUNT(*) AS n FROM auth_tokens WHERE user_id=?').get(ownerId).n),0);
+ r=await request('/api/orders','GET',undefined,ownerCookie);assert.equal(r.status,401);
+ r=await request('/api/login','POST',{email:'owner@example.com',password:'New-owner-password-456'});assert.equal(r.status,401);
+ r=await request('/api/login','POST',{email:'owner@example.com',password:'Recovered-owner-789'});assert.equal(r.status,200);const recoveredCookie=r.cookie;
+ r=await request('/api/session','GET',undefined,recoveredCookie);assert.equal(r.data.user.emailVerified,true);
+ r=await request(route,'POST',{email:'recovered@example.com',adminPassword:'New-admin-password-456'},adminCookie);assert.equal(r.status,200);assert.equal(r.data.emailChanged,true);assert.equal(r.data.passwordChanged,false);assert.equal(r.data.verificationEmailSent,true);
+ r=await request('/api/orders','GET',undefined,recoveredCookie);assert.equal(r.status,401);
+ r=await request('/api/login','POST',{email:'owner@example.com',password:'Recovered-owner-789'});assert.equal(r.status,401);
+ r=await request('/api/login','POST',{email:'recovered@example.com',password:'Recovered-owner-789'});assert.equal(r.status,200);const newCookie=r.cookie;
+ r=await request('/api/session','GET',undefined,newCookie);assert.equal(r.data.user.emailVerified,false);assert.equal(r.data.store.id,storeId);assert.equal(r.data.store.status,'approved');
+ r=await request('/api/products','GET',undefined,newCookie);assert.equal(r.data.length,1);assert.equal(r.data[0].details.name,'Backed-up product');
+ const events=database(db=>db.prepare('SELECT action FROM account_audit WHERE user_id=?').all(ownerId));assert.deepEqual(events.map(e=>e.action),['password_reset','email_changed']);
+ const token=tokenFor(mail('recovered@example.com','verify'));r=await request('/api/auth/verify-email','POST',{token});assert.equal(r.status,200);
+ r=await request('/api/session','GET',undefined,adminCookie);assert.equal(r.data.user.role,'admin');
+});

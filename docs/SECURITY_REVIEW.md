@@ -30,3 +30,7 @@ Automated integration and browser suites cover token hashing, expiration/reuse/w
 - A single application instance is supported with SQLite and local files. The trial's capacity and expiry still apply. Do not promise unlimited storage/availability. Use measured sizing, monitoring and managed storage for public growth.
 - CSRF checks rely on Railway forwarding the original host correctly. No arbitrary forwarded IP is trusted. WAF/DDoS protection and provider account access controls are outside this review.
 - There is no MFA, malware scanner, independent penetration test or security certification. Treat this as a tested application baseline and repeat review after major changes.
+
+## Admin-assisted recovery update
+
+Owner password/email recovery requires both an authenticated admin session and confirmation of that admin's current password, with an account-scoped attempt limit. Only owners attached to the selected store are eligible; admin accounts cannot be targeted through this feature. Updates are atomic, reject duplicate emails, revoke owner sessions and all old account tokens, and clear verification on email changes. Passwords are salted/hashed and never returned in the API or audit records. Metadata-only audit events preserve the admin/owner identity, action and timestamp. Integration/browser tests cover authorization, incorrect admin password, duplicate email, password validation, preservation of store data, old-login/session invalidation, new-login success and verification of the new address.
