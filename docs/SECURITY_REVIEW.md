@@ -1,0 +1,32 @@
+# Digital Dukan application security review
+
+This review covers the repository's application code, authentication routes, tenant access, customer orders, uploads, backups and restore workflow. It uses isolated test data, not a penetration test against production or another service. Review date: 14 October 2026. External hosting, email delivery, DNS and offsite storage configuration must be checked separately.
+
+## Changes made
+
+- Verification and password-reset links use random 256-bit tokens. The database stores SHA-256 hashes, not the original tokens. Verification expires after 24 hours; reset expires after 30 minutes. Consumed/replaced links are invalidated and token types cannot be exchanged.
+- Links use a configured `APP_URL`, never an incoming Host/forwarded header. Tokens use URL fragments and are removed from the browser address before rendering. Link redemption requires an explicit confirmation, avoiding automatic consumption by ordinary email link scanners. Referrer policy is `no-referrer`; no token-bearing request URL is logged.
+- Passwords are salted scrypt hashes. Owner passwords require 8–128 characters; admins require 12–128. Login attempts for unknown users also perform a dummy password hash check to reduce timing differences.
+- Password-reset responses are generic for registered/unregistered emails. Email delivery runs outside the anonymous response path to avoid exposing provider delivery latency. No user identity or reset token is returned by this endpoint.
+- Successful reset revokes every session and every outstanding account link for that account. Admin bootstrap settings no longer replace a reset password on restart. Sessions remain HttpOnly, SameSite=Lax, and Secure in production.
+- New store approvals require the owner's email to be verified. Existing approved stores keep their publication state; their owners are prompted to verify. Bootstrap admins are trusted through private deployment configuration.
+- Rate-limit counters are stored in SQLite and survive restarts. Login account limits, reset email cooldowns, verification throttles and upload/backup limits cannot be bypassed by supplying a fake X-Forwarded-For header. Proxy socket limits also act as conservative shared limits; traffic/edge limits must be tuned for larger public deployments.
+- Write APIs reject cross-site browser requests, mismatched Origin and non-JSON bodies. Invalid JSON shape, malformed product/cart fields and excessively large prices are rejected. Request body size is limited to 3 MB; request/header deadlines reduce slow-request exposure.
+- Owner APIs scope products/orders/stores to the authenticated owner. Admin moderation, backup listing, creation and downloading require admin authorization. Public stores return published storefront details, not account/password/order records.
+- Uploads allow PNG/JPEG/WebP signatures and 2 MB per image. New uploaded-file usage is limited to 32 MB per owner and 64 MB across the test installation to protect the small trial volume. Files use generated names, not submitted filenames. SVG/HTML uploads are rejected, and responses have nosniff protection. Formats are signature checked, not re-encoded by an image decoder.
+- Online SQLite backups preserve consistency while the application runs, copy uploaded files, verify SQLite integrity and record file SHA-256 checksums. Archives are private admin downloads, not public assets. Recent completed archives are retained; partial snapshots are not downloadable.
+- Offline restore checks paths, rejects links/special file types, checks file hashes and database integrity, and requires an empty destination. Restored sessions and recovery tokens are removed. Existing live data cannot be overwritten through an admin browser action.
+- Production responses include HSTS, CSP, frame protection and no-referrer headers. Unexpected server/provider errors do not print credentials or recovery links. Private database/archive files have restricted filesystem permissions.
+
+## Evidence
+
+Automated integration and browser suites cover token hashing, expiration/reuse/wrong purpose, approval gating, password reset and session revocation, admin password persistence, cross-tenant access, malformed/cross-site requests, rate limiting across restart, actual backup creation/download/restore with a photo, corrupted archive rejection, public recovery pages, and temporary error messages. A separate test waits for the automatic startup backup to actually run.
+
+## Operational requirements and limits
+
+- Real email delivery requires private `RESEND_API_KEY`, `MAIL_FROM`, and `APP_URL` settings. The Resend testing sender only delivers to the Resend account email; arbitrary store-owner emails require a verified sender domain. Local tests use a file-based transport permitted only in NODE_ENV=test. Production delivery has not been established by those tests.
+- Email jobs are not a durable message queue. In-flight reset messages are given up to 15 seconds to finish on graceful shutdown; an abrupt interruption/provider outage may require the user to request a new link. Signup accounts remain created if verification email delivery fails, and their dashboard offers resend. Do not mistake an API-accepted message for confirmed inbox delivery.
+- Automatic backups reside on the same volume. They help with accidental changes, not loss of that volume/account. Download an archive to protected storage outside Railway; automate offsite backup before public marketing. Archives contain customer data and password hashes and are not encrypted by this app. Hashes detect corruption, not authenticity: restore only trusted app-generated archives.
+- A single application instance is supported with SQLite and local files. The trial's capacity and expiry still apply. Do not promise unlimited storage/availability. Use measured sizing, monitoring and managed storage for public growth.
+- CSRF checks rely on Railway forwarding the original host correctly. No arbitrary forwarded IP is trusted. WAF/DDoS protection and provider account access controls are outside this review.
+- There is no MFA, malware scanner, independent penetration test or security certification. Treat this as a tested application baseline and repeat review after major changes.

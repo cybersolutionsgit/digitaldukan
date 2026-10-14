@@ -1,13 +1,13 @@
 import {test,after,before} from 'node:test';
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
-import {mkdtempSync,rmSync} from 'node:fs';
+import {mkdtempSync,rmSync,readdirSync,readFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 const dir=mkdtempSync(join(tmpdir(),'dukan-test-'));const port=3456,base=`http://127.0.0.1:${port}`;let child,ownerCookie,adminCookie,store,product,order;
 const password='Test-password-1234';
 async function request(path,method='GET',body,cookie){const r=await fetch(base+path,{method,headers:{...(body?{'content-type':'application/json'}:{}),...(cookie?{cookie}:{})},body:body?JSON.stringify(body):undefined});return {status:r.status,data:await r.json(),cookie:r.headers.get('set-cookie')?.split(';')[0]};}
-before(async()=>{child=spawn(process.execPath,['server.js'],{env:{...process.env,PORT:String(port),DATA_DIR:dir,ADMIN_EMAIL:'admin@example.com',ADMIN_PASSWORD:password},stdio:['ignore','pipe','pipe']});await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Server startup timed out')),10000);child.stdout.on('data',()=>{clearTimeout(timer);resolve()});child.on('exit',()=>reject(Error('Server exited')))});});
+before(async()=>{child=spawn(process.execPath,['server.js'],{env:{...process.env,PORT:String(port),DATA_DIR:dir,NODE_ENV:'test',EMAIL_TRANSPORT:'test',APP_URL:base,AUTO_BACKUPS:'false',ADMIN_EMAIL:'admin@example.com',ADMIN_PASSWORD:password},stdio:['ignore','pipe','pipe']});await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Server startup timed out')),10000);child.stdout.on('data',()=>{clearTimeout(timer);resolve()});child.on('exit',()=>reject(Error('Server exited')))});});
 after(()=>{child?.kill();rmSync(dir,{recursive:true,force:true});});
 test('complete account, approval, product, checkout and moderation workflow',async()=>{
 let r=await request('/api/signup','POST',{email:'owner@example.com',password,slug:'test-shop',subscribed:true,details:{name:'Test Shop',whatsapp:'923001234567',delivery:250},sections:[{type:'hero',layout:1},{type:'featured',layout:2}]});assert.equal(r.status,200);ownerCookie=r.cookie;
@@ -23,6 +23,8 @@ r=await request('/api/products','GET',undefined,ownerCookie);product=r.data[0];a
 r=await request('/api/login','POST',{email:'admin@example.com',password});assert.equal(r.status,200);adminCookie=r.cookie;
 r=await request('/api/admin/stores/'+store.id,'PATCH',{status:'rejected',reason:'Please add a description.'},adminCookie);assert.equal(r.status,200);
 r=await request('/api/resubmit','POST',{},ownerCookie);assert.equal(r.status,200);
+r=await request('/api/admin/stores/'+store.id,'PATCH',{status:'approved'},adminCookie);assert.equal(r.status,400);
+const outbox=readdirSync(join(dir,'test-outbox')).map(name=>JSON.parse(readFileSync(join(dir,'test-outbox',name),'utf8')));const verification=outbox.find(mail=>mail.to==='owner@example.com'&&mail.kind==='verify');const verifyToken=new URLSearchParams(new URL(verification.url).hash.slice(1)).get('token');r=await request('/api/auth/verify-email','POST',{token:verifyToken});assert.equal(r.status,200);
 r=await request('/api/admin/stores/'+store.id,'PATCH',{status:'approved'},adminCookie);assert.equal(r.status,200);
 r=await request('/api/public/test-shop');assert.equal(r.status,200);assert.equal(r.data.products.length,1);assert.equal(r.data.store.user_id,undefined);
 r=await request('/api/checkout','POST',{slug:'test-shop',name:'Customer',phone:'03001234567',address:'Lahore',items:[{id:product.id,quantity:2,size:'Small',color:'White',price:1}]});assert.equal(r.status,200);assert.equal(r.data.total,4250);assert.match(r.data.whatsapp,/https:\/\/wa.me\/923001234567/);order=r.data.id;
@@ -50,7 +52,7 @@ const response=await fetch(base+'/api/login',{method:'POST',headers:{'content-ty
 
 test('accounts and orders survive a service restart',async()=>{
 await new Promise(resolve=>{child.once('exit',resolve);child.kill();});
-child=spawn(process.execPath,['server.js'],{env:{...process.env,PORT:String(port),DATA_DIR:dir,ADMIN_EMAIL:'admin@example.com',ADMIN_PASSWORD:password},stdio:['ignore','pipe','pipe']});
+child=spawn(process.execPath,['server.js'],{env:{...process.env,PORT:String(port),DATA_DIR:dir,NODE_ENV:'test',EMAIL_TRANSPORT:'test',APP_URL:base,AUTO_BACKUPS:'false',ADMIN_EMAIL:'admin@example.com',ADMIN_PASSWORD:password},stdio:['ignore','pipe','pipe']});
 await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Restart timed out')),10000);child.stdout.on('data',()=>{clearTimeout(timer);resolve()});child.on('exit',()=>reject(Error('Server exited')))});
 let r=await request('/api/login','POST',{email:'owner@example.com',password});assert.equal(r.status,200);
 r=await request('/api/orders','GET',undefined,r.cookie);assert.equal(r.data.length,1);assert.equal(r.data[0].status,'Delivered');

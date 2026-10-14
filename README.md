@@ -17,7 +17,7 @@ SQLite database and uploaded images are in `DATA_DIR` (default `./data`), which 
 
 ## Admin account
 
-Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` in your hosting environment settings before startup. Choose your own password of at least 12 characters; no default production admin credentials are included. Startup creates the admin account, or updates its password when the configured password changes. An owner account cannot be promoted by reusing its email. Admins and sellers sign in at `/login`; admins are redirected to `/admin`.
+Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` in your hosting environment settings before startup. Choose your own password of at least 12 characters; no default production admin credentials are included. Startup creates the admin account once. Existing admin passwords are not overwritten on restart, so password resets stay valid. Use the password-reset flow to change an existing admin password; editing ADMIN_PASSWORD alone is not a password-change operation. An owner account cannot be promoted by reusing its email. Admins and sellers sign in at `/login`; admins are redirected to `/admin`.
 
 Do not add actual credentials to `.env.example`, source code, GitHub, or chat. Node does not automatically load a `.env` file: set environment variables through hosting settings, your shell, or `node --env-file=.env server.js` when running locally.
 
@@ -55,8 +55,50 @@ To use `shop.yourdomain.com`, acquire a domain, configure wildcard DNS and HTTPS
 
 ## Current limitations
 
-No email verification, password reset email, payment gateway, subscription billing, shipping integration, custom-domain provisioning, or managed database integration. Use your own uploaded photographs; the demo storefront's illustrations and products are examples, not actual inventory. Render account linking and deployment need to be completed by the account owner. The tests validate the local implementation; they do not establish live hosting or DNS readiness.
+No payment gateway, subscription billing, shipping integration, custom-domain provisioning, managed database integration, or automated offsite backup destination. Use your own uploaded photographs; the demo storefront's illustrations and products are examples, not actual inventory. Render account linking and deployment need to be completed by the account owner. The tests validate the local implementation; they do not establish live hosting or DNS readiness.
 
 ### Browser regression checks
 
 Run `npm run test:browser` after installing Chromium with `npx playwright install chromium`, or set `CHROMIUM_PATH` to an existing Chromium executable. The browser tests use their own temporary database and verify signed-in owner/admin navigation, login/signup redirects, reloads, a second tab, language switching and logout. The tests never use production accounts or data. Playwright is a development dependency only.
+
+
+## Email verification and password recovery
+
+In Railway → service → Variables, privately set:
+
+| Variable | Value |
+| --- | --- |
+| `APP_URL` | `https://digitaldukan-production.up.railway.app` (change when moving domains) |
+| `RESEND_API_KEY` | Your Resend API key, entered privately; never commit or share it in chat |
+| `MAIL_FROM` | Testing: `Digital Dukan <onboarding@resend.dev>`; production: a sender on your verified domain |
+
+Create your account at https://resend.com/signup and obtain an API key in its dashboard. The testing sender can only email your Resend account address. Other recipients need a verified sender domain; public email onboarding must wait for that configuration. Email delivery is handled through Resend's HTTPS API, not SMTP.
+
+Signup attempts to send a verification email after creating the account. If delivery is unavailable, the account still exists and the dashboard provides a resend button. Owners may build and preview while unverified. Email verification is required for first approval; already-approved stores keep their status. The dashboard's email notice also applies to existing owner accounts. Bootstrap admin configuration is trusted and marks that admin verified.
+
+- `/forgot-password` requests recovery with a generic response for unknown/known accounts.
+- `/reset-password#token=…` lets the recipient set a new password; all previous sessions and links are revoked.
+- `/verify-email#token=…` confirms the email through an explicit button.
+- Reset links expire after 30 minutes; verification links after 24 hours. New successfully delivered links replace earlier links of the same type.
+
+The code does not print secret keys or recovery links. `EMAIL_TRANSPORT=test` only works with `NODE_ENV=test` and writes private test fixtures under DATA_DIR/test-outbox. Never use test mode for your public service. Real delivery must be tested with the configured sender and an allowed inbox before launch.
+
+## Backups and restoring
+
+Admin panel → **Backups** provides **Create backup** and **Download backup**. Archives include the database and all uploaded photos. The application takes an automatic startup snapshot after 60 seconds if no backup newer than 24 hours exists, then checks hourly for the next daily snapshot. `AUTO_BACKUPS=false` disables scheduling; default `BACKUP_KEEP=3` retains three archives (maximum 10). Set `BACKUP_DIR` only to a private persistent location; by default it is DATA_DIR/backups. Node.js 24 and the system `tar` executable are required.
+
+These are local copies on the same volume. Download a copy outside Railway after important changes. Keep it private in encrypted/protected storage: it includes customer addresses and password hashes. Trial expiry and provider data-retention limits apply to the entire volume, including local backups. The admin panel shows the last backup error; insufficient free space blocks creation instead of deleting existing data first. Interrupted staging files may need administrator cleanup after a crash.
+
+To restore (an administrator/developer operation):
+
+1. Stop the application and preserve the current DATA_DIR. Do not overwrite the live directory.
+2. Copy a trusted downloaded archive to the host. Run:
+
+   ```sh
+   npm run restore -- /path/to/dukan-backup.tar.gz /empty/restored-data
+   ```
+
+3. The command checks checksums/database integrity and clears restored login sessions/account tokens.
+4. Set `DATA_DIR=/empty/restored-data` and restart. Verify accounts, storefronts, orders and photos before removing old data.
+
+Read [the application security review](docs/SECURITY_REVIEW.md) for findings, tested protections and remaining operational requirements. The automatic-backup test deliberately waits about one minute, so `npm test` now takes longer. `npm run test:browser` covers recovery, verification and the admin backup UI in isolated data.

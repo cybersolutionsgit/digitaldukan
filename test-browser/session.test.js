@@ -1,7 +1,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync, existsSync } from 'node:fs';
+import { mkdtempSync, rmSync, existsSync, readdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { chromium } from 'playwright';
@@ -13,7 +13,7 @@ let server, browser;
 
 before(async () => {
   server = spawn(process.execPath, ['server.js'], {
-    env: { ...process.env, PORT: '3471', DATA_DIR: dir, NODE_ENV: 'test',
+    env: { ...process.env, PORT: '3471', DATA_DIR: dir, NODE_ENV: 'test', EMAIL_TRANSPORT: 'test', APP_URL: base, AUTO_BACKUPS: 'false',
       ADMIN_EMAIL: 'admin@example.com', ADMIN_PASSWORD: password },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -199,5 +199,46 @@ test('blocked forms show temporary top errors for validation, server and connect
  await page.getByRole('button',{name:'Dismiss notification'}).click();
  assert.equal(await page.locator('#toast.show').count(),0);
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+ await context.close();
+});
+
+test('email verification and password reset work through the public account pages', async () => {
+ const context=await browser.newContext();const page=await context.newPage();
+ await page.goto(base+'/login');await page.getByRole('link',{name:'Forgot password?'}).click();
+ await page.locator('[name=email]').fill('owner@example.com');
+ await page.getByRole('button',{name:'Send reset link'}).click();
+ await page.locator('h2:has-text("Check your email")').waitFor();
+ const messages=()=>readdirSync(join(dir,'test-outbox')).map(name=>JSON.parse(readFileSync(join(dir,'test-outbox',name),'utf8')));
+ const reset=messages().find(m=>m.to==='owner@example.com'&&m.kind==='reset');assert.ok(reset);
+ await page.goto(reset.url);await page.locator('#reset-form').waitFor();
+ assert.equal(new URL(page.url()).hash,'','reset token is removed from the browser address');
+ await page.locator('[name=password]').fill('New-browser-owner-456');await page.locator('[name=confirm]').fill('Mismatch-password');
+ await page.getByRole('button',{name:'Reset password'}).click();await page.locator('#toast.error.show').waitFor();
+ assert.match(await page.locator('.toast-message').innerText(),/do not match/);
+ await page.locator('[name=confirm]').fill('New-browser-owner-456');await page.getByRole('button',{name:'Reset password'}).click();
+ await page.locator('h2:has-text("Password updated")').waitFor();
+ await page.getByRole('link',{name:'Sign in',exact:false}).click();await page.locator('#login-form').waitFor();
+ await page.locator('[name=email]').fill('owner@example.com');await page.locator('[name=password]').fill('New-browser-owner-456');
+ await page.getByRole('button',{name:'Sign in',exact:false}).click();await page.waitForURL(base+'/dashboard');
+ const sent=page.waitForResponse(r=>r.url()===base+'/api/auth/resend-verification');
+ await page.getByRole('button',{name:'Send verification email'}).click();assert.equal((await sent).status(),200);
+ const verification=messages().filter(m=>m.to==='owner@example.com'&&m.kind==='verify').at(-1);assert.ok(verification);
+ await page.goto(verification.url);await page.locator('#verify-form').waitFor();
+ assert.equal(new URL(page.url()).hash,'');
+ await page.getByRole('button',{name:'Verify my email'}).click();await page.locator('h2:has-text("Email verified")').waitFor();
+ await page.getByRole('link',{name:'Open dashboard'}).click();await page.locator('.workspace-main').waitFor();
+ assert.equal(await page.locator('.verification-notice').count(),0);
+ await context.close();
+});
+
+test('admin can create and download an archive from the backup panel',async()=>{
+ const context=await browser.newContext();
+ const response=await context.request.post(base+'/api/login',{data:{email:'admin@example.com',password}});assert.equal(response.status(),200);
+ const page=await context.newPage();await page.goto(base+'/admin');
+ await page.locator('[data-admin-tab=backups]').click();
+ await page.getByRole('button',{name:'Create backup'}).click();
+ await page.locator('a[download]').first().waitFor();
+ const downloadPromise=page.waitForEvent('download');await page.locator('a[download]').first().click();
+ const download=await downloadPromise;assert.match(download.suggestedFilename(),/^dukan-.*\.tar\.gz$/);assert.equal(await download.failure(),null);
  await context.close();
 });
