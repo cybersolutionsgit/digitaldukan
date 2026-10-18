@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
-import {mkdtempSync,rmSync,existsSync} from 'node:fs';
+import {mkdtempSync,rmSync,existsSync,readFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {chromium} from 'playwright';
@@ -35,7 +35,7 @@ test('signup uploads, visible selections, inline photo edits, custom options and
   const session=await(await context.request.get(base+'/api/session')).json();assert.match(session.store.details.logo,/^\/uploads\//);assert.equal((await context.request.get(base+session.store.details.logo)).status(),200);
   const steps=await page.locator('.launch-checklist .checklist-item b').allTextContents();assert.equal(steps.at(-2),'Add your first product');
   await page.locator('.sidebar [data-tab=products]').click();await page.locator('[data-action=add-product]').click();await page.locator('#product-form [name=name]').fill('Coffee beans');await page.locator('[name=price]').fill('1200');await page.locator('[name=option1Name]').fill('Weight');await page.locator('[name=sizes]').fill('500g,1kg');await page.locator('[name=option2Name]').fill('Roast');await page.locator('[name=colors]').fill('Light,Dark');
-  await page.screenshot({path:'docs/screenshots/custom-product-options.png',fullPage:true,animations:'disabled'});await page.getByRole('button',{name:'Save product'}).click();await page.getByText('Coffee beans',{exact:true}).waitFor();
+  await page.screenshot({path:'docs/screenshots/custom-product-options.png',fullPage:true,animations:'disabled'});await page.locator('[data-upload-target=images]').setInputFiles({name:'product.webp',mimeType:'image/webp',buffer:readFileSync('public/stock/product-tshirt.webp')});await page.waitForFunction(()=>document.querySelector('#product-form [name=images]').value.startsWith('/uploads/'));await page.getByRole('button',{name:'Save product'}).click();await page.getByText('Coffee beans',{exact:true}).waitFor();
   await page.locator('.sidebar [data-tab=editor]').click();await page.locator('#studio-preview-canvas h1').waitFor();assert.equal(await page.getByRole('heading',{name:'Section content',exact:true}).count(),0);assert.equal(await page.locator('.section-content:visible').count(),0);
   assert.equal(await page.locator('[data-recipe="4"]').getAttribute('aria-pressed'),'true');
   await page.locator('#studio-preview-canvas h1').fill('Made by our bakery');await page.locator('#studio-preview-canvas h1').blur();

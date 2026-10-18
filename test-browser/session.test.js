@@ -1,3 +1,4 @@
+import {DatabaseSync} from 'node:sqlite';
 import {businessDetails} from '../test/fixtures.js';
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -34,6 +35,8 @@ after(async () => {
   });
   rmSync(dir, { recursive: true, force: true });
 });
+
+async function uploadProductPhoto(page){await page.locator('[data-upload-target=images]').setInputFiles({name:'sample-product.webp',mimeType:'image/webp',buffer:readFileSync('public/stock/product-tshirt.webp')});await page.waitForFunction(()=>document.querySelector('#product-form [name=images]').value.startsWith('/uploads/'));}
 
 async function completeBusinessFields(page){for(const [key,value]of Object.entries(businessDetails)){const field=page.locator(`#signup-form [name="${key}"]`);if(await field.count()&&key!=='category'&&!await field.inputValue())await field.fill(value);}}
 
@@ -300,9 +303,9 @@ test('niche signup suggests local themes, keeps customization and saves the chos
  const saved=page.waitForResponse(r=>r.url()===base+'/api/store'&&r.request().method()==='PATCH');await page.getByRole('button',{name:'Save store details'}).click();assert.equal((await saved).status(),200);
  await page.locator('.sidebar [data-tab=products]').click();await page.getByRole('button',{name:'Add product',exact:false}).click();
  await page.locator('[name=name]').fill('Wireless headphones');await page.locator('[name=price]').fill('2400');await page.locator('[name=category]').fill('Electronics');await page.locator('[name=category]').blur();
- await page.getByRole('button',{name:'Save product'}).click();await page.locator('td:has-text("Wireless headphones")').waitFor();
+ await uploadProductPhoto(page);await page.getByRole('button',{name:'Save product'}).click();await page.locator('td:has-text("Wireless headphones")').waitFor();
  await page.goto(base+'/s/niche-browser');await page.locator('.storefront[data-theme=electronics]').waitFor();
- assert.match(await page.locator('.store-hero h1').innerText(),/everyday upgrade/);await page.locator('.store-product .product-photo-placeholder').waitFor();
+ assert.match(await page.locator('.store-hero h1').innerText(),/everyday upgrade/);await page.locator('.store-product .product-media img').waitFor();
  const color=await page.locator('.storefront').evaluate(el=>getComputedStyle(el).getPropertyValue('--brand').trim());assert.equal(color,'#123456');
  await page.screenshot({path:'/tmp/digitaldukan-niche-store.png',fullPage:true});
  await page.goto(base+'/dashboard');await page.getByRole('button',{name:'Store editor',exact:false}).click();
@@ -333,7 +336,7 @@ test('premium studio supports complete recipes, section photos, live edits, undo
  await page.getByRole('button',{name:'Publish changes',exact:true}).click();assert.match(await page.locator('#toast.error').innerText(),/Save your changes/);
  const saved=page.waitForResponse(r=>r.url()===base+'/api/store'&&r.request().method()==='PATCH');await page.getByRole('button',{name:'Save homepage'}).click();assert.equal((await saved).status(),200);await page.locator('#studio-save-state').waitFor();
  await page.locator('[data-section-photo=hero]').click();await page.locator('[data-clear-photo=hero]').click();await page.getByRole('button',{name:'Save homepage'}).click();await page.locator('#studio-save-state').waitFor();assert.equal((await(await context.request.get(base+'/api/session')).json()).store.sections.find(s=>s.type==='hero').image,'','cleared photos stay cleared after saving');
- await page.locator('.sidebar [data-tab=products]').click();await page.getByRole('button',{name:'Add product',exact:false}).click();await page.locator('[name=name]').fill('Cookie box');await page.locator('[name=price]').fill('900');await page.getByRole('button',{name:'Save product'}).click();await page.locator('td:has-text("Cookie box")').waitFor();
+ await page.locator('.sidebar [data-tab=products]').click();await page.getByRole('button',{name:'Add product',exact:false}).click();await page.locator('[name=name]').fill('Cookie box');await page.locator('[name=price]').fill('900');await uploadProductPhoto(page);await page.getByRole('button',{name:'Save product'}).click();await page.locator('td:has-text("Cookie box")').waitFor();
  await page.getByRole('button',{name:'Store details',exact:false}).click();const image=await page.evaluate(()=>{const canvas=document.createElement('canvas');canvas.width=2000;canvas.height=1000;canvas.getContext('2d').fillRect(0,0,2000,1000);return canvas.toDataURL('image/png').split(',')[1]});
  await page.locator('[data-upload-target=banner]').setInputFiles({name:'test-banner.png',mimeType:'image/png',buffer:Buffer.from(image,'base64')});await page.waitForFunction(()=>document.querySelector('[name=banner]').value.startsWith('/uploads/'));const uploaded=await page.locator('[name=banner]').inputValue();const dimensions=await page.evaluate(async url=>{const bitmap=await createImageBitmap(await(await fetch(url)).blob());return [bitmap.width,bitmap.height]},uploaded);assert.deepEqual(dimensions,[1600,800]);
  await page.locator('.seo-settings summary').click();await page.locator('[name=seoTitle]').fill('Crumb Studio — Fresh bakes');await page.getByRole('button',{name:'Save store details'}).click();await page.locator('#settings-form').waitFor();
@@ -368,7 +371,7 @@ test('all 30 category photographs decode locally without external image requests
 test('product semantics, category filtering and uniform card geometry survive all five layouts',async()=>{
  const context=await browser.newContext({viewport:{width:1440,height:1000},reducedMotion:'reduce'}),page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
  const signup=await context.request.post(base+'/api/signup',{data:{email:'consistent-cards@example.com',password,slug:'consistent-cards',subscribed:true,details:{...businessDetails,name:'Card Studio',theme:'fashion',whatsapp:'923001234567',delivery:200,businessMode:'retail'},sections:[{type:'categories',layout:5},{type:'featured',layout:5,text:'A collection introduction.'}]}});assert.equal(signup.status(),200,await signup.text());
- for(const product of [{name:'Short name',description:'Original product description.',price:1800,images:['/stock/product-tshirt.webp'],category:'Clothing'},{name:'A deliberately longer product name that wraps onto two lines',description:'A detailed product description. '.repeat(15),price:2500,salePrice:2200,stock:0,images:['/stock/product-shirt.webp','/stock/product-tshirt.webp'],category:'Clothing'},{name:'Denim jeans',description:'',price:3200,images:['/stock/product-jeans.webp'],sizes:'S, M, L',colors:'Blue, Black',category:'Denim'},{name:'Product awaiting a photo',price:900,category:'Accessories',images:[]}])assert.equal((await context.request.post(base+'/api/products',{data:product})).status(),200);
+ for(const product of [{name:'Short name',description:'Original product description.',price:1800,images:['/stock/product-tshirt.webp'],category:'Clothing'},{name:'A deliberately longer product name that wraps onto two lines',description:'A detailed product description. '.repeat(15),price:2500,salePrice:2200,stock:0,images:['/stock/product-shirt.webp','/stock/product-tshirt.webp'],category:'Clothing'},{name:'Denim jeans',description:'',price:3200,images:['/stock/product-jeans.webp'],sizes:'S, M, L',colors:'Blue, Black',category:'Denim'},{name:'Product awaiting a photo',price:900,category:'Accessories',images:[]}]){if(product.images.length)assert.equal((await context.request.post(base+'/api/products',{data:product})).status(),200);else{const account=await(await context.request.get(base+'/api/session')).json(),db=new DatabaseSync(join(dir,'digitaldukan.sqlite'));try{db.prepare('INSERT INTO products VALUES(?,?,?)').run('cccccccccccccccccccccccc',account.store.id,JSON.stringify({...product,sizes:'',colors:'',stock:null,salePrice:null}));}finally{db.close()}}} // Legacy photo-free products remain viewable; new submissions require a photo.
  let sessionData=await(await context.request.get(base+'/api/session')).json();
  for(const layout of [1,2,3,4,5]){
   assert.equal((await context.request.patch(base+'/api/store',{data:{details:sessionData.store.details,sections:[{type:'categories',layout:5},{type:'featured',layout,text:'A collection introduction.'},{type:'about',layout:4}]}})).status(),200);

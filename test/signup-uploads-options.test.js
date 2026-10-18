@@ -26,8 +26,8 @@ test('signup validates required business details and saves optional uploads atom
   dbRun('DROP TRIGGER reject_signup');
   r=await request('/api/signup','POST',{...signup,signupImages:{logo:image}});assert.equal(r.status,200);const owner=r.cookie;
   r=await request('/api/session','GET',undefined,owner);const store=r.data.store;assert.match(store.details.logo,/^\/uploads\//);assert.equal(store.details.banner,'');assert.equal((await fetch(base+store.details.logo)).status,200);
-  r=await request('/api/products','POST',{name:'Coffee beans',price:1200,images:[],option1Name:'Weight',sizes:'500g,1kg',option2Name:'Roast',colors:'Light,Dark'},owner);assert.equal(r.status,200);
-  r=await request('/api/products','POST',{name:'Invalid labels',price:100,images:[],option1Name:'',sizes:'A,B'},owner);assert.equal(r.status,400);
+  r=await request('/api/products','POST',{name:'Coffee beans',price:1200,images:['/stock/product-tshirt.webp'],option1Name:'Weight',sizes:'500g,1kg',option2Name:'Roast',colors:'Light,Dark'},owner);assert.equal(r.status,200);
+  r=await request('/api/products','POST',{name:'Invalid labels',price:100,images:['/stock/product-tshirt.webp'],option1Name:'',sizes:'A,B'},owner);assert.equal(r.status,400);
   r=await request('/api/products','GET',undefined,owner);const product=r.data[0];assert.equal(product.details.option1Name,'Weight');
   r=await request('/api/login','POST',{email:'admin@example.com',password});const admin=r.cookie;
   r=await request('/api/admin/stores/'+store.id,'PATCH',{status:'approved'},admin);assert.equal(r.status,200);

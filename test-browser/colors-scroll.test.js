@@ -43,7 +43,7 @@ test('scroll controls follow long pages and panels; color roles preview, undo, s
   await page.screenshot({path:'docs/screenshots/brand-color-storefront.png',fullPage:false,animations:'disabled'});
   await page.getByRole('button',{name:'Scroll to bottom',exact:true}).click();await page.waitForFunction(()=>document.documentElement.scrollHeight-innerHeight-scrollY<10);
   await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:'Scroll to top',exact:true}).click();await page.waitForFunction(()=>scrollY<10);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
-  await owner.locator('.sidebar [data-tab=settings]').click();for(const [name,value]of Object.entries(colors))assert.equal(await owner.locator(`[name=${name}]`).inputValue(),value);
+  await owner.locator('.sidebar [data-tab=settings]').click();await owner.locator('#settings-form').waitFor();for(const [name,value]of Object.entries(colors))assert.equal(await owner.locator(`[name=${name}]`).inputValue(),value);
   await owner.locator('.brand-colors').screenshot({path:'docs/screenshots/brand-color-controls.png',animations:'disabled'});
   await owner.locator('[data-action=language]').click();await owner.getByText('Primary rang',{exact:true}).waitFor();await owner.getByRole('button',{name:'Page ke aakhir mein jayein',exact:true}).waitFor();
   const invalid=await context.request.patch(base+'/api/store',{data:{details:{...saved.store.details,secondaryColor:'url(bad)'},sections:saved.store.sections}});assert.equal(invalid.status(),400);

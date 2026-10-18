@@ -1,0 +1,40 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {spawn} from 'node:child_process';
+import {mkdtempSync,rmSync,existsSync,readFileSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {chromium} from 'playwright';
+import {businessDetails} from '../test/fixtures.js';
+
+const base='http://127.0.0.1:3494',password='Feedback-browser-password-123';
+test('signup explains errors before each next step, translates simple hints, and requires a product photo',async()=>{
+ const dir=mkdtempSync(join(tmpdir(),'dukan-signup-feedback-'));let server,browser;
+ try{
+  server=spawn(process.execPath,['server.js'],{env:{...process.env,PORT:'3494',DATA_DIR:dir,NODE_ENV:'test',EMAIL_VERIFICATION_ENABLED:'false',AUTO_BACKUPS:'false'},stdio:['ignore','pipe','pipe']});
+  await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Startup timeout')),10000);server.stdout.once('data',()=>{clearTimeout(timer);resolve()});server.once('exit',()=>{clearTimeout(timer);reject(Error('Server exited'))})});
+  browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||(existsSync('/usr/bin/chromium')?'/usr/bin/chromium':undefined),headless:true,args:['--no-sandbox']});
+  const seed=await browser.newContext();assert.equal((await seed.request.post(base+'/api/signup',{data:{email:'taken@example.com',password,slug:'taken-store',subscribed:true,details:{...businessDetails,name:'Existing shop',whatsapp:'923001234567',delivery:0},sections:[{type:'hero',layout:1}]}})).status(),200);
+  const context=await browser.newContext({viewport:{width:1280,height:900},reducedMotion:'reduce'}),page=await context.newPage(),errors=[],posts=[];page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(r.method()==='POST')posts.push(new URL(r.url()).pathname)});
+  const fieldError=name=>page.locator(`#signup-form [name=${name}]`).locator('xpath=ancestor::label[contains(@class,"field")]').locator('.field-error');
+  await page.goto(base);await page.locator('#home-email').fill('wrong-email');await page.locator('#home-email-error').filter({hasText:'Use an email'}).waitFor();
+  await page.goto(base+'/signup');await page.locator('[name=email]').fill('wrong-email');await fieldError('email').filter({hasText:'Use an email'}).waitFor();await page.getByRole('button',{name:'Continue'}).click();assert.equal(await page.locator('[name=slug]').count(),0);
+  await page.locator('[name=email]').fill('taken@example.com');await page.locator('[name=password]').fill(password);await fieldError('email').filter({hasText:'already has an account'}).waitFor();assert.equal(posts.includes('/api/signup'),false);
+  await page.locator('[name=email]').fill('fresh@example.com');await page.locator('[name=password]').fill('short');await fieldError('email').waitFor({state:'hidden'});await fieldError('password').filter({hasText:'at least 8'}).waitFor();await page.locator('[name=password]').fill(password);await page.getByRole('button',{name:'Continue'}).click();await page.getByLabel('Username',{exact:true}).waitFor();
+  assert.match(await page.locator('[name=slug]').getAttribute('placeholder'),/nayastore/);assert.equal(await page.getByText('Choose your store address',{exact:true}).count(),0);
+  await page.locator('[name=slug]').fill('bad name');await fieldError('slug').filter({hasText:'No spaces'}).waitFor();await page.locator('[name=slug]').fill('admin');await fieldError('slug').filter({hasText:'reserved'}).waitFor();await page.locator('[name=slug]').fill('taken-store');await page.locator('[name=name]').fill('My Dukan');await fieldError('slug').filter({hasText:'taken'}).waitFor();
+  await page.locator('[name=whatsapp]').fill('923001234567');for(const [name,value]of Object.entries(businessDetails))if(name!=='category')await page.locator(`#signup-form [name=${name}]`).fill(value);
+  await page.locator('[name=instagram]').fill('not a link');await fieldError('instagram').filter({hasText:'instagram.com/myshop'}).waitFor();await page.locator('[name=facebook]').fill('javascript:bad');await fieldError('facebook').filter({hasText:'facebook.com/myshop'}).waitFor();
+  await page.getByRole('button',{name:'Continue'}).click();assert.equal(await page.locator('.recipe-picker').count(),0,'invalid details do not advance to section choice');assert.equal(posts.includes('/api/signup'),false);
+  await page.evaluate(()=>scrollTo(0,0));await page.locator('[data-action=language]').click();await fieldError('instagram').filter({hasText:'Link aise likho'}).waitFor();assert.equal(await page.locator('[name=name]').getAttribute('placeholder'),'Jaisay Meri Dukan');assert.equal(await page.locator('#signup-form [name=description]').getAttribute('placeholder'),'Likho ke tum kya bechtay ho');assert.equal(await page.locator('[name=name]').inputValue(),'My Dukan');
+  await page.locator('#signup-form [name=description]').fill('');await page.screenshot({path:'docs/screenshots/signup-inline-feedback-roman.png',fullPage:true,animations:'disabled'});await page.locator('#signup-form [name=description]').fill(businessDetails.description);await page.locator('[data-action=language]').click();assert.equal(await page.locator('[name=name]').getAttribute('placeholder'),'Like My Dukan');
+  await page.locator('[name=slug]').fill('fresh-dukan');await page.locator('[name=instagram]').fill('insta.com/abc');await page.locator('[name=facebook]').fill('facebook.com/freshdukan');await page.getByRole('button',{name:'Continue'}).click();await page.locator('.recipe-picker').waitFor();assert.equal(posts.includes('/api/signup'),false);
+  await page.getByRole('button',{name:'Continue'}).click();await page.locator('[name=subscribed]').check();await page.getByRole('button',{name:'Subscribe'}).click();await page.waitForURL(base+'/dashboard');
+  const account=await(await context.request.get(base+'/api/session')).json();assert.equal(account.store.slug,'fresh-dukan');assert.equal(account.store.details.instagram,'https://insta.com/abc');
+  await page.locator('.sidebar [data-tab=products]').click();await page.locator('[data-action=add-product]').click();await page.locator('#product-form [name=name]').fill('Chocolate cake');await page.locator('[name=price]').fill('1500');await page.getByRole('button',{name:'Save product'}).click();await page.locator('[data-upload-error]').filter({hasText:'Add at least one product photo'}).waitFor();assert.equal(posts.includes('/api/products'),false);
+  await page.screenshot({path:'docs/screenshots/product-photo-required.png',fullPage:true,animations:'disabled'});
+  const photo={name:'cake.webp',mimeType:'image/webp',buffer:readFileSync('public/stock/product-cake.webp')};await page.locator('[data-upload-target=images]').setInputFiles(photo);await page.waitForFunction(()=>document.querySelector('#product-form [name=images]').value.startsWith('/uploads/'));assert.equal(await page.locator('[data-upload-target=images]').getAttribute('required'),null);
+  await page.locator('[data-remove-image=images]').click();assert.equal(await page.locator('[data-upload-target=images]').getAttribute('required'),'');await page.locator('[data-upload-target=images]').setInputFiles(photo);await page.waitForFunction(()=>document.querySelector('#product-form [name=images]').value.startsWith('/uploads/'));await page.getByRole('button',{name:'Save product'}).click();await page.getByText('Chocolate cake',{exact:true}).waitFor();
+  const products=await(await context.request.get(base+'/api/products')).json();assert.equal(products.length,1);assert.equal(products[0].details.images.length,1);assert.deepEqual(errors,[]);
+ }finally{await browser?.close();if(server?.exitCode===null)await new Promise(resolve=>{server.once('exit',resolve);server.kill()});rmSync(dir,{recursive:true,force:true})}
+});
