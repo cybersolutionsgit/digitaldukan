@@ -1,5 +1,15 @@
 // Roman Urdu interface copy. Merchant content and input values are never translated.
 export const interfaceTranslations={
+  "Business details": "Business ki maloomat",
+  "Pending": "Abhi karna hai",
+  "OPTION 1 \u00b7 READY-MADE": "TAREEQA 1 \u00b7 TAYYAR DESIGN",
+  "Choose a ready-made homepage": "Tayyar homepage chunein",
+  "Pick one complete design. All its sections are selected together, and you can still customize them below.": "Ek poora design chunein. Is ke saare sections aik saath lag jayein ge. Neeche se inhein badal bhi sakte hain.",
+  "OR \u00b7 BUILD IT YOUR WAY": "YA \u00b7 APNI PASAND SE BANAYEIN",
+  "OPTION 2 \u00b7 MIX & MATCH": "TAREEQA 2 \u00b7 KHUD CHUNEIN",
+  "Build your own homepage": "Apna homepage khud banayein",
+  "Choose the sections you want and pick a layout for each. You can also adjust a ready-made homepage here.": "Apni pasand ke sections aur har section ka design chunein. Tayyar homepage mein bhi yahin se tabdeeli kar sakte hain.",
+
   "A BIG MOMENT FOR YOUR BUSINESS": "AAPKE BUSINESS KI NAYI SHURUAT",
   "Congratulations!": "Mubarak ho!",
   "Your website is ready.": "Aapki website ban gayi hai.",

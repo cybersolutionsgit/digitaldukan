@@ -18,9 +18,7 @@ test('paused verification disappears from owner/admin workflows and old links ex
   await page.goto(base+'/dashboard');await page.locator('.launch-checklist').waitFor();
   assert.equal(await page.locator('.verification-notice,[data-action="resend-verification"]').count(),0);
   assert.equal(await page.getByText('Verify your account email',{exact:true}).count(),0);
-  await page.getByRole('button',{name:'Launch check',exact:true}).click();await page.getByRole('heading',{name:'Before you launch'}).waitFor();
-  assert.match(await page.locator('.modal').innerText(),/Admin approval remains required/);
-  assert.doesNotMatch(await page.locator('.modal').innerText(),/Verify your account email|email verification remain required/);
+  assert.equal(await page.locator('[data-action=launch-check]').count(),0,'launch review waits for required tasks');
   await page.goto(base+'/verify-email#token='+'a'.repeat(64));await page.getByRole('heading',{name:'Email verification paused'}).waitFor();
   assert.equal(await page.locator('#verify-form').count(),0);assert.equal(new URL(page.url()).hash,'');
   const admin=await browser.newContext();await admin.request.post(base+'/api/login',{data:{email:'admin@example.com',password}});const adminPage=await admin.newPage();
