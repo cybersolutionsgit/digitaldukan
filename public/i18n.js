@@ -479,5 +479,20 @@ export const interfaceTranslations={
   "Completed": "Mukammal",
   "STARTER PLAN": "STARTER PLAN",
   "Section heading": "Section ki heading",
-  "Click to add section text": "Section ka text likhne ke liye click karein"
+  "Click to add section text": "Section ka text likhne ke liye click karein",
+  "Brand colors": "Brand ke rang",
+  "Primary color": "Primary rang",
+  "Secondary color": "Secondary rang",
+  "Text color": "Text ka rang",
+  "Primary shapes page backgrounds and buttons. Secondary colors banners and promotions. Text and banner shades adjust automatically for readable contrast.": "Primary rang page backgrounds aur buttons par lagta hai. Secondary rang banners aur promotions par. Text aur banner ke shades parhne mein asani ke liye khud adjust hote hain.",
+  "Page background": "Page ka background",
+  "Banner preview": "Banner ka preview",
+  "Your message, clearly presented.": "Aapka paigham, saaf andaaz mein.",
+  "Button preview": "Button ka preview",
+  "Readable text on your page.": "Page par asani se parhne wala text.",
+  "Contrast protection is active. Text or banner shades may be adjusted.": "Contrast protection on hai. Text ya banner ke shades adjust ho sakte hain.",
+  "Your colors have readable contrast.": "Aapke rangon mein text saaf parh sakte hain.",
+  "Scroll to bottom": "Page ke aakhir mein jayein",
+  "Scroll to top": "Page ke shuru mein jayein",
+  "Choose valid six-digit hex colors.": "Sahi chhay digit wale hex rang choose karein."
 };

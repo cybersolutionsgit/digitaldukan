@@ -1,0 +1,52 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {spawn} from 'node:child_process';
+import {mkdtempSync,rmSync,existsSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {chromium} from 'playwright';
+import {businessDetails} from '../test/fixtures.js';
+import {storePalette,contrast} from '../public/colors.js';
+
+const base='http://127.0.0.1:3493',password='Colors-scroll-password-123';
+test('scroll controls follow long pages and panels; color roles preview, undo, save and publish with contrast',async()=>{
+ const dir=mkdtempSync(join(tmpdir(),'dukan-colors-scroll-'));let server,browser;
+ try{
+  server=spawn(process.execPath,['server.js'],{env:{...process.env,PORT:'3493',DATA_DIR:dir,NODE_ENV:'test',EMAIL_VERIFICATION_ENABLED:'false',AUTO_BACKUPS:'false',ADMIN_EMAIL:'admin@example.com',ADMIN_PASSWORD:password},stdio:['ignore','pipe','pipe']});
+  await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Startup timeout')),10000);server.stdout.once('data',()=>{clearTimeout(timer);resolve()});server.once('exit',()=>{clearTimeout(timer);reject(Error('Server exited'))})});
+  browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||(existsSync('/usr/bin/chromium')?'/usr/bin/chromium':undefined),headless:true,args:['--no-sandbox']});
+  const guest=await browser.newContext({viewport:{width:1440,height:900},reducedMotion:'reduce'}),page=await guest.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.goto(base);await page.getByRole('button',{name:'Scroll to bottom',exact:true}).click();await page.waitForFunction(()=>document.documentElement.scrollHeight-innerHeight-scrollY<10);await page.getByRole('button',{name:'Scroll to top',exact:true}).click();await page.waitForFunction(()=>scrollY<10);
+  const context=await browser.newContext({viewport:{width:1440,height:1000},reducedMotion:'reduce'}),owner=await context.newPage();owner.on('pageerror',e=>errors.push(e.message));
+  const initial={...businessDetails,name:'Palette Studio',theme:'fashion',whatsapp:'923001234567',delivery:0,accent:'#075e47',secondaryColor:'#d8b46b',textColor:'#142b32'};
+  const signup=await context.request.post(base+'/api/signup',{data:{email:'palette@example.com',password,slug:'palette-studio',subscribed:true,details:initial,sections:['hero','categories','featured','offers','about','reviews','benefits','contact'].map(type=>({type,layout:1}))}});assert.equal(signup.status(),200);
+  await context.request.post(base+'/api/products',{data:{name:'Cotton T-shirt',price:1800,images:['/stock/product-tshirt.webp']}});
+  const session=await(await context.request.get(base+'/api/session')).json(),admin=await browser.newContext();await admin.request.post(base+'/api/login',{data:{email:'admin@example.com',password}});await admin.request.patch(base+'/api/admin/stores/'+session.store.id,{data:{status:'approved'}});
+  await owner.goto(base+'/dashboard');await owner.getByRole('button',{name:'Scroll to bottom',exact:true}).click();await owner.waitForFunction(()=>document.documentElement.scrollHeight-innerHeight-scrollY<10);await owner.getByRole('button',{name:'Scroll to top',exact:true}).click();
+  await owner.locator('.sidebar [data-tab=editor]').click();await owner.locator('#studio-preview-canvas .store-hero').waitFor();
+  const setColor=async(name,value)=>{await owner.locator(`#editor-form [name=${name}]`).evaluate((el,color)=>{el.value=color;el.dispatchEvent(new Event('input',{bubbles:true}))},value)};
+  for(const name of ['accent','secondaryColor','textColor'])await setColor(name,'#ffffff');
+  await owner.waitForFunction(()=>document.querySelector('#studio-preview-canvas').style.getPropertyValue('--brand')==='#ffffff');
+  const vars=await owner.locator('#studio-preview-canvas').evaluate(el=>{const s=getComputedStyle(el);return {page:s.getPropertyValue('--store-bg').trim(),banner:s.getPropertyValue('--store-secondary').trim(),text:s.getPropertyValue('--store-ink').trim(),bannerText:s.getPropertyValue('--banner-ink').trim()}});assert.ok(contrast(vars.page,vars.banner)>=1.6);assert.ok(contrast(vars.page,vars.text)>=4.5);assert.ok(contrast(vars.banner,vars.bannerText)>=4.5);
+  await owner.getByRole('button',{name:'Undo',exact:true}).click();assert.equal(await owner.locator('[name=textColor]').inputValue(),initial.textColor);
+  const colors={accent:'#4338ca',secondaryColor:'#d8b46b',textColor:'#142b32'};for(const [name,value]of Object.entries(colors))await setColor(name,value);
+  await owner.locator('.studio-preview-panel').screenshot({path:'docs/screenshots/brand-color-live-preview.png',animations:'disabled'});
+  const preview=owner.locator('.studio-preview-wrap');await preview.dispatchEvent('pointerdown');await owner.getByRole('button',{name:'Scroll to bottom',exact:true}).click();await owner.waitForFunction(()=>{const el=document.querySelector('.studio-preview-wrap');return el.scrollTop>0&&el.scrollHeight-el.clientHeight-el.scrollTop<10});await owner.getByRole('button',{name:'Scroll to top',exact:true}).click();await owner.waitForFunction(()=>document.querySelector('.studio-preview-wrap').scrollTop<10);
+  await owner.locator('[data-section-photo=hero]').click();await owner.locator('[data-stock-for=hero]').click();await owner.getByRole('button',{name:'Scroll to bottom',exact:true}).click();await owner.waitForFunction(()=>{const modal=document.querySelector('.modal');return modal.scrollTop>0&&modal.scrollHeight-modal.clientHeight-modal.scrollTop<10});await owner.keyboard.press('Escape');
+  await owner.getByRole('button',{name:'Save homepage'}).click();await owner.locator('#studio-save-state').waitFor();
+  const saved=await(await context.request.get(base+'/api/session')).json();for(const [name,value]of Object.entries(colors))assert.equal(saved.store.details[name],value);
+  let published=await(await guest.request.get(base+'/api/public/palette-studio')).json();assert.equal(published.store.details.accent,initial.accent,'saved palette stays private until published');
+  await owner.getByRole('button',{name:'Publish changes',exact:true}).click();await owner.locator('#toast').filter({hasText:'Your changes are now live'}).waitFor();
+  published=await(await guest.request.get(base+'/api/public/palette-studio')).json();for(const [name,value]of Object.entries(colors))assert.equal(published.store.details[name],value);
+  await page.goto(base+'/s/palette-studio');await page.locator('.store-hero').waitFor();const palette=storePalette(colors,{});assert.equal(await page.locator('.storefront').evaluate(el=>getComputedStyle(el).getPropertyValue('--store-secondary').trim()),palette.banner);
+  const geometry=await page.locator('.store-hero').evaluate(el=>({background:getComputedStyle(el).backgroundColor,text:getComputedStyle(el.querySelector('h1')).color}));assert.notEqual(geometry.background,geometry.text);
+  await page.screenshot({path:'docs/screenshots/brand-color-storefront.png',fullPage:false,animations:'disabled'});
+  await page.getByRole('button',{name:'Scroll to bottom',exact:true}).click();await page.waitForFunction(()=>document.documentElement.scrollHeight-innerHeight-scrollY<10);
+  await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:'Scroll to top',exact:true}).click();await page.waitForFunction(()=>scrollY<10);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  await owner.locator('.sidebar [data-tab=settings]').click();for(const [name,value]of Object.entries(colors))assert.equal(await owner.locator(`[name=${name}]`).inputValue(),value);
+  await owner.locator('.brand-colors').screenshot({path:'docs/screenshots/brand-color-controls.png',animations:'disabled'});
+  await owner.locator('[data-action=language]').click();await owner.getByText('Primary rang',{exact:true}).waitFor();await owner.getByRole('button',{name:'Page ke aakhir mein jayein',exact:true}).waitFor();
+  const invalid=await context.request.patch(base+'/api/store',{data:{details:{...saved.store.details,secondaryColor:'url(bad)'},sections:saved.store.sections}});assert.equal(invalid.status(),400);
+  assert.deepEqual(errors,[]);
+ }finally{await browser?.close();if(server?.exitCode===null)await new Promise(resolve=>{server.once('exit',resolve);server.kill()});rmSync(dir,{recursive:true,force:true})}
+});
