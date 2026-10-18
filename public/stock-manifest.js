@@ -1,2 +1,33 @@
-// Filled by npm run cache:stock after the stock-photo host is allowed.
-export const localStock = {};
+// Shared optimized stock images; see docs/STOCK_PHOTOS.md.
+export const localStock = {
+  "fashion": "/stock/fashion.webp",
+  "home": "/stock/home.webp",
+  "beauty": "/stock/beauty.webp",
+  "food": "/stock/food.webp",
+  "electronics": "/stock/electronics.webp",
+  "handmade": "/stock/handmade.webp",
+  "jewelry": "/stock/jewelry.webp",
+  "footwear": "/stock/footwear.webp",
+  "bags": "/stock/bags.webp",
+  "kids": "/stock/kids.webp",
+  "books": "/stock/books.webp",
+  "sports": "/stock/sports.webp",
+  "outdoors": "/stock/outdoors.webp",
+  "pets": "/stock/pets.webp",
+  "plants": "/stock/plants.webp",
+  "furniture": "/stock/furniture.webp",
+  "kitchen": "/stock/kitchen.webp",
+  "bakery": "/stock/bakery.webp",
+  "coffee": "/stock/coffee.webp",
+  "restaurant": "/stock/restaurant.webp",
+  "wellness": "/stock/wellness.webp",
+  "salon": "/stock/salon.webp",
+  "art": "/stock/art.webp",
+  "automotive": "/stock/automotive.webp",
+  "tools": "/stock/tools.webp",
+  "office": "/stock/office.webp",
+  "events": "/stock/events.webp",
+  "digital": "/stock/digital.webp",
+  "other": "/stock/other.webp",
+  "toys": "/stock/toys.webp"
+};

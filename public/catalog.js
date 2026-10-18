@@ -9,18 +9,18 @@ export const categoryKits = [
  ['handmade','Handmade & gifts','Craft & Story','#9c5c31','Small details. A personal touch.','1452860606245-08befc0ff44b','Creative craft workspace','Woven bag|Handmade mug|Gift box|Personalized print'],
  ['jewelry','Jewelry & watches','Golden Hour','#886532','Details worth keeping.','1617038220319-276d3cfab638','Jewelry collection','Pendant|Everyday studs|Classic watch|Signature ring'],
  ['footwear','Shoes & footwear','The Next Step','#66534b','Find your everyday stride.','1542291026-7eec264c27ff','Red sneakers','Everyday sneakers|Leather sandals|Classic flats|Weekend shoes'],
- ['bags','Bags & leather goods','Carry Studio','#6f4937','Carry a little character.','1548036328-c9fa89d128fa','Leather handbag','Everyday tote|Crossbody bag|Card holder|Travel bag'],
- ['kids','Kids & baby','Little Days','#727044','For their little everyday.','1519689680058-324335c77eba','Parent holding a baby','Baby essentials|Cotton set|Play mat|Little blanket'],
- ['toys','Toys & games','Playful Things','#a34e36','Make room for play.','1558877385-81a1c48abf67','Children toys','Building blocks|Board game|Soft toy|Creative kit'],
+ ['bags','Bags & leather goods','Carry Studio','#6f4937','Carry a little character.','1553062407-98eeb64c6a62','Navy fabric backpack','Everyday tote|Crossbody bag|Card holder|Travel bag'],
+ ['kids','Kids & baby','Little Days','#727044','For their little everyday.','1519689680058-324335c77eba','Baby wearing sunglasses on a colorful swim ring','Baby essentials|Cotton set|Play mat|Little blanket'],
+ ['toys','Toys & games','Playful Things','#a34e36','Make room for play.','1558060370-d644479cb6f7','Children toys','Building blocks|Board game|Soft toy|Creative kit'],
  ['books','Books & stationery','Paper Chapter','#555b7b','Your next chapter starts here.','1507842217343-583bb7270b66','Library bookshelves','Notebook|Reading journal|Weekly planner|Book collection'],
  ['sports','Sports & fitness','Move Everyday','#386454','Made for your next move.','1517836357463-d25dfeac3438','Person exercising in a gym','Training mat|Resistance band|Sports bottle|Workout bag'],
  ['outdoors','Outdoor & travel','Open Trails','#536748','Take the scenic route.','1464822759023-fed622ff2c3b','Mountain landscape','Day pack|Travel organizer|Camping light|Trail essentials'],
  ['pets','Pet supplies','Good Companions','#88603d','For the ones with paws.','1450778869180-41d0601e046e','Dog and cat outdoors','Pet bowl|Soft bed|Everyday lead|Play toy'],
  ['plants','Plants & gardening','Root & Leaf','#386340','Bring a little green home.','1416879595882-3373a0480b5b','Gardening and potted plants','Indoor plant|Ceramic planter|Garden tools|Plant care kit'],
  ['furniture','Furniture','Form & Space','#71614b','Good living starts with good design.','1555041469-a586c61ea9bc','Modern sofa and furniture','Accent chair|Side table|Lounge sofa|Wooden shelf'],
- ['kitchen','Kitchen & dining','Gather Around','#8d573a','Everyday moments, beautifully served.','1556911220-bff31c812dba','Person cooking in a kitchen','Dinner set|Serving bowl|Kitchen tools|Coffee cup'],
+ ['kitchen','Kitchen & dining','Gather Around','#8d573a','Everyday moments, beautifully served.','1556911220-bff31c812dba','Bright kitchen with cookware and fresh produce','Dinner set|Serving bowl|Kitchen tools|Coffee cup'],
  ['bakery','Bakery & desserts','Butter & Crumb','#985b3d','A little joy, freshly baked.','1509440159596-0249088772ff','Fresh bread and bakery','Celebration cake|Cookie box|Fresh loaf|Brownie tray'],
- ['coffee','Coffee & tea','Slow Mornings','#6f4d3c','Make time for a better cup.','1447933601403-0c6688de566e','Coffee beans and brewing','Coffee blend|Loose leaf tea|Brewing set|Everyday mug'],
+ ['coffee','Coffee & tea','Slow Mornings','#6f4d3c','Make time for a better cup.','1447933601403-0c6688de566e','Roasted coffee beans','Coffee blend|Loose leaf tea|Brewing set|Everyday mug'],
  ['restaurant','Restaurant & catering','At the Table','#914a32','Good company. Great food.','1414235077428-338989a2e8c0','Restaurant dining','Family platter|Lunch box|Party menu|House special'],
  ['wellness','Health & wellness','Well Within','#577563','Small rituals for everyday wellbeing.','1544367567-0f2fcb009e0b','People practicing yoga','Wellness journal|Care bundle|Relaxation kit|Daily essentials'],
  ['salon','Salon & grooming','The Care Studio','#765569','Make time for yourself.','1560066984-138dadb4c035','Salon interior','Hair care set|Grooming kit|Styling essentials|Care collection'],
@@ -44,3 +44,14 @@ export const homepageRecipes=[
  {name:'Signature',description:'Immersive photography and a strong split composition.',layouts:[4,4,4,4,4,4,4,4]},
  {name:'Modern',description:'A graphic magazine layout with rounded visual details.',layouts:[5,5,5,5,5,5,5,5]}
 ];
+
+// Reuse relevant photos from the shared collection rather than repeating a hero everywhere.
+const relatedPhotos={
+ fashion:['fashion','bags','jewelry','footwear'],home:['home','furniture','plants','kitchen'],beauty:['beauty','salon','wellness','beauty'],food:['food','bakery','coffee','restaurant'],electronics:['electronics','office','tools','digital'],handmade:['handmade','art','events','jewelry'],jewelry:['jewelry','fashion','bags','events'],footwear:['footwear','fashion','sports','outdoors'],bags:['bags','fashion','outdoors','office'],kids:['kids','toys','books','home'],toys:['toys','kids','books','handmade'],books:['books','office','handmade','art'],sports:['sports','wellness','outdoors','footwear'],outdoors:['outdoors','bags','sports','plants'],pets:['pets','home','outdoors','pets'],plants:['plants','home','outdoors','kitchen'],furniture:['furniture','home','office','kitchen'],kitchen:['kitchen','coffee','bakery','restaurant'],bakery:['bakery','kitchen','coffee','food'],coffee:['coffee','kitchen','bakery','restaurant'],restaurant:['restaurant','kitchen','food','coffee'],wellness:['wellness','sports','plants','home'],salon:['salon','beauty','fashion','wellness'],art:['art','handmade','home','books'],automotive:['automotive','tools','electronics','outdoors'],tools:['tools','handmade','automotive','office'],office:['office','electronics','books','digital'],events:['events','jewelry','art','restaurant'],digital:['digital','office','electronics','art'],other:['other','fashion','home','food']
+};
+export function contextualPhoto(key,section='hero',index=0){
+ const related=relatedPhotos[key]||relatedPhotos.other;
+ const position=section==='product'?index%4:({hero:0,categories:2,about:1,offers:1,reviews:0,benefits:3,contact:1}[section]??0);
+ const kit=categoryKits.find(k=>k.id===related[position]);
+ return {url:stockImage(kit.id,section==='product'?600:1200),alt:kit.alt};
+}

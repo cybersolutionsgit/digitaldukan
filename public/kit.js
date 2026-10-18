@@ -1,4 +1,4 @@
-import {stockImage,categoryKits,homepageRecipes} from './catalog.js';
+import {homepageRecipes,contextualPhoto} from './catalog.js';
 export {homepageRecipes};
 export const layoutLabels={
  hero:['Editorial split','Centered campaign','Photo first','Immersive cover','Magazine collage'],
@@ -13,10 +13,10 @@ export const layoutLabels={
 export function enhanceSection(markup,section,details,esc){
  const theme=details.theme||'classic';
  if(theme==='classic'&&!section.image&&section.layout<4)return markup;
- const kit=categoryKits.find(k=>k.id===theme)||categoryKits.at(-1);
- const url=section.image||details.banner||stockImage(theme);
+ const context=contextualPhoto(theme,section.type);
+ const url=section.image||details.banner||context.url;
  const isStock=!section.image&&!details.banner||/^https:\/\/images\.unsplash\.com\//.test(url)||url.startsWith('/stock/');
- const alt=section.image?section.imageAlt||'Store photograph':details.banner?details.name+' collection':kit.alt;
+ const alt=section.image?section.imageAlt||'Store photograph':details.banner?details.name+' collection':context.alt;
  const image=`<figure class="kit-media"><img src="${esc(url)}" alt="${esc(alt)}" loading="lazy" decoding="async" style="--photo-position:${section.imagePosition||'center'};--photo-mobile-position:${section.mobileImagePosition||section.imagePosition||'center'}"><figcaption>${isStock?'Illustrative stock photograph':''}</figcaption></figure>`;
  markup=markup.replace('<section ',`<section data-section="${section.type}" `);
  if(section.type==='hero'){

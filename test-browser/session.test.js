@@ -313,8 +313,7 @@ test('niche signup suggests local themes, keeps customization and saves the chos
 
 test('premium studio supports complete recipes, section photos, live edits, undo and explicit publishing',async()=>{
  const context=await browser.newContext({viewport:{width:1440,height:1000},reducedMotion:'reduce'});const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
- // The cloud allowlist may block stock providers. This test validates UI with a local fixture,
- // not the remote provider's availability or the suitability of individual photos.
+ // Cached category photos are used locally. Any fallback external request is isolated here.
  const fixture=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aNmcAAAAASUVORK5CYII=','base64');
  await context.route('https://images.unsplash.com/**',route=>route.fulfill({contentType:'image/png',body:fixture}));
  await page.goto(base+'/templates');await page.locator('.gallery-card').first().waitFor();assert.equal(await page.locator('.gallery-card').count(),30);
@@ -327,7 +326,7 @@ test('premium studio supports complete recipes, section photos, live edits, undo
  await page.locator('[name=title-hero]').fill('Fresh from our oven');await page.waitForFunction(()=>document.querySelector('#studio-preview-canvas h1')?.textContent==='Fresh from our oven');
  await page.getByRole('button',{name:'Undo',exact:true}).click();assert.equal(await page.locator('[name=title-hero]').inputValue(),'');await page.locator('[name=title-hero]').fill('Fresh from our oven');
  await page.locator('#studio-preview-canvas h1').fill('Edited on the canvas');await page.locator('#studio-preview-canvas h1').press('Tab');assert.equal(await page.locator('[name=title-hero]').inputValue(),'Edited on the canvas');await page.locator('[name=imagePosition-hero]').selectOption('top');await page.locator('[name=mobileImagePosition-hero]').selectOption('bottom');await page.locator('[data-stock-for=hero]').click();await page.locator('#stock-search').fill('bakery');assert.equal(await page.locator('[data-photo-key]:visible').count(),1);await page.locator('[data-photo-key=bakery]').click();
- assert.match(await page.locator('[name=image-hero]').inputValue(),/images.unsplash.com/);await page.locator('[data-device=mobile]').click();await page.waitForTimeout(200);assert.equal(await page.locator('.studio-preview-wrap.mobile-preview').count(),1);assert.equal(await page.locator('#studio-preview-canvas .store-hero>.kit-media img').evaluate(el=>getComputedStyle(el).objectPosition),'50% 100%');
+ assert.match(await page.locator('[name=image-hero]').inputValue(),/^\/stock\/bakery\.webp$/);await page.locator('[data-device=mobile]').click();await page.waitForTimeout(200);assert.equal(await page.locator('.studio-preview-wrap.mobile-preview').count(),1);assert.equal(await page.locator('#studio-preview-canvas .store-hero>.kit-media img').evaluate(el=>getComputedStyle(el).objectPosition),'50% 100%');
  await page.getByRole('button',{name:'Publish changes',exact:true}).click();assert.match(await page.locator('#toast.error').innerText(),/Save your changes/);
  const saved=page.waitForResponse(r=>r.url()===base+'/api/store'&&r.request().method()==='PATCH');await page.getByRole('button',{name:'Save homepage'}).click();assert.equal((await saved).status(),200);await page.locator('#studio-save-state').waitFor();
  await page.locator('[data-clear-photo=hero]').click();await page.getByRole('button',{name:'Save homepage'}).click();await page.locator('#studio-save-state').waitFor();assert.equal((await(await context.request.get(base+'/api/session')).json()).store.sections.find(s=>s.type==='hero').image,'','cleared photos stay cleared after saving');
@@ -350,4 +349,15 @@ test('all five kit compositions render desktop and mobile without overflow or br
   assert.ok(await page.locator('.store-hero h1').evaluate(el=>el.getBoundingClientRect().height>30));
  }
  assert.deepEqual(errors,[]);await context.close();
+});
+
+test('all 30 category photographs decode locally without external image requests',async()=>{
+ const context=await browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage();const external=[];
+ page.on('request',r=>{if(/^https:/.test(r.url()))external.push(r.url());});await context.route('https://**',route=>route.abort());
+ await page.goto(base+'/templates');await page.locator('.gallery-card').first().waitFor();
+ const photos=await page.locator('.gallery-card>img').evaluateAll(async images=>{images.forEach(image=>image.loading='eager');return await Promise.all(images.map(async image=>{await image.decode();return {src:new URL(image.src).pathname,width:image.naturalWidth,height:image.naturalHeight};}));});
+ assert.equal(photos.length,30);for(const photo of photos){assert.match(photo.src,/^\/stock\/[a-z]+\.webp$/);assert.ok(photo.width>=1000&&photo.height>100);const response=await context.request.get(base+photo.src);assert.equal(response.status(),200);assert.match(response.headers()['content-type'],/image\/webp/);assert.equal(response.headers()['cache-control'],'public,max-age=86400');}assert.deepEqual(external,[]);
+ await page.screenshot({path:'docs/screenshots/template-gallery.png'});
+ await page.goto(base+'/demo?kit=fashion&layout=4');await page.locator('.store-hero .kit-media img').evaluate(img=>img.decode());await page.screenshot({path:'docs/screenshots/fashion-kit-desktop.png',fullPage:true});
+ await page.setViewportSize({width:390,height:844});await page.screenshot({path:'docs/screenshots/fashion-kit-mobile.png',fullPage:true});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await context.close();
 });
