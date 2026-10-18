@@ -13,7 +13,7 @@ test('early checks match final signup rules and product photos are enforced on c
  async function request(path,method='GET',body,cookie){const r=await fetch(base+path,{method,headers:{...(body?{'content-type':'application/json'}:{}),...(cookie?{cookie}:{})},body:body?JSON.stringify(body):undefined});return {status:r.status,data:await r.json(),cookie:r.headers.get('set-cookie')?.split(';')[0]}}
  const signup={email:'taken@example.com',password,slug:'taken-store',subscribed:true,details:{...businessDetails,name:'Sample shop',whatsapp:'923001234567',delivery:100},sections:[{type:'hero',layout:1}]};
  try{
-  server=spawn(process.execPath,['server.js'],{env:{...process.env,PORT:'3495',DATA_DIR:dir,NODE_ENV:'test',EMAIL_VERIFICATION_ENABLED:'false',AUTO_BACKUPS:'false'},stdio:['ignore','pipe','pipe']});
+  server=spawn(process.execPath,['server.js'],{env:{...process.env,PORT:'3495',DATA_DIR:dir,NODE_ENV:'test',EMAIL_VERIFICATION_ENABLED:'false',AUTO_BACKUPS:'false',ADMIN_EMAIL:'admin@example.com',ADMIN_PASSWORD:password},stdio:['ignore','pipe','pipe']});
   await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Startup timeout')),10000);server.stdout.once('data',()=>{clearTimeout(timer);resolve()});server.once('exit',()=>{clearTimeout(timer);reject(Error('Server exited'))})});
   let r=await request('/api/signup','POST',signup);assert.equal(r.status,200);const owner=r.cookie;
   r=await request('/api/signup/check','POST',{email:signup.email});assert.equal(r.data.ok,false);assert.match(r.data.errors.email,/already/);
@@ -29,8 +29,21 @@ test('early checks match final signup rules and product photos are enforced on c
   r=await request('/api/products','GET',undefined,owner);const product=r.data[0];
   r=await request('/api/products','POST',{...product.details,id:product.id,images:[]},owner);assert.equal(r.status,400);
   r=await request('/api/products','GET',undefined,owner);assert.deepEqual(r.data[0].details.images,['/stock/product-cake.webp']);
+  assert.equal((await request('/api/store/launch-check','POST',{confirmed:true})).status,401);
+  assert.equal((await request('/api/store/launch-check','POST',{},owner)).status,400);
+  assert.equal((await request('/api/store/launch-check','POST',{confirmed:true},owner)).status,409);
+  const administrator=(await request('/api/login','POST',{email:'admin@example.com',password})).cookie;
+  const before=(await request('/api/session','GET',undefined,owner)).data.store;
+  assert.equal((await request('/api/admin/stores/'+before.id,'PATCH',{status:'approved',reason:''},administrator)).status,200);
+  r=await request('/api/store/launch-check','POST',{confirmed:true},owner);assert.equal(r.status,200);const completedAt=r.data.completedAt;assert.ok(completedAt);
+  assert.equal((await request('/api/store/launch-check','POST',{confirmed:true},owner)).data.completedAt,completedAt,'rechecking preserves completion time');
+  let after=(await request('/api/session','GET',undefined,owner)).data.store;assert.equal(after.launch_checked_at,completedAt);assert.deepEqual(after.details,before.details);assert.deepEqual(after.sections,before.sections);
+  // Draft saves and restores must not erase the independent checklist state.
+  assert.equal((await request('/api/store','PATCH',{details:after.details,sections:after.sections},owner)).status,200);
+  assert.equal((await request('/api/store/discard','POST',{},owner)).status,200);
+  assert.equal((await request('/api/session','GET',undefined,owner)).data.store.launch_checked_at,completedAt);
   r=await request('/api/signup/check','POST',{slug:'free-before-race'});assert.equal(r.data.ok,true);
-  r=await request('/api/signup','POST',{...signup,email:'race-one@example.com',slug:'free-before-race'});assert.equal(r.status,200);
+  r=await request('/api/signup','POST',{...signup,email:'race-one@example.com',slug:'free-before-race'});assert.equal(r.status,200);const otherOwner=r.cookie;assert.equal((await request('/api/session','GET',undefined,otherOwner)).data.store.launch_checked_at,null);assert.equal((await request('/api/store/launch-check','POST',{confirmed:true},otherOwner)).status,409);assert.equal((await request('/api/session','GET',undefined,owner)).data.store.launch_checked_at,completedAt);
   r=await request('/api/signup','POST',{...signup,email:'race-two@example.com',slug:'free-before-race'});assert.equal(r.status,400,'final signup still protects against a username taken after its early check');
  }finally{if(server?.exitCode===null)await new Promise(resolve=>{server.once('exit',resolve);server.kill()});rmSync(dir,{recursive:true,force:true})}
 });

@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS rate_limits(key TEXT PRIMARY KEY,count INTEGER,expire
 CREATE TABLE IF NOT EXISTS upload_usage(name TEXT PRIMARY KEY,user_id TEXT REFERENCES users(id),bytes INTEGER);
 CREATE TABLE IF NOT EXISTS account_audit(id TEXT PRIMARY KEY,actor_id TEXT REFERENCES users(id),user_id TEXT REFERENCES users(id),action TEXT,created TEXT);`);
 if(!db.prepare('PRAGMA table_info(users)').all().some(column=>column.name==='email_verified'))db.exec('ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0');
-for(const column of ['published_details','published_sections','published_at','draft_saved_at'])if(!db.prepare('PRAGMA table_info(stores)').all().some(c=>c.name===column))db.exec('ALTER TABLE stores ADD COLUMN '+column+' TEXT');
+for(const column of ['published_details','published_sections','published_at','draft_saved_at','launch_checked_at'])if(!db.prepare('PRAGMA table_info(stores)').all().some(c=>c.name===column))db.exec('ALTER TABLE stores ADD COLUMN '+column+' TEXT');
 const cleanup=()=>{db.prepare('DELETE FROM sessions WHERE expires<?').run(Date.now());db.prepare('DELETE FROM auth_tokens WHERE expires<?').run(Date.now());db.prepare('DELETE FROM rate_limits WHERE expires<?').run(Date.now());};
 for(const name of ['digitaldukan.sqlite-wal','digitaldukan.sqlite-shm'])if(statSync(join(dir,name),{throwIfNoEntry:false}))chmodSync(join(dir,name),0o600);
 cleanup();
@@ -168,6 +168,15 @@ if(path==='/api/admin/backups'&&req.method==='GET'){admin();return {items:listBa
 if(path==='/api/admin/backups'&&req.method==='POST'){admin();rate(req,'backup-user',4,3600000,u.id);try{return {ok:true,backup:await runBackup()};}catch(error){fail(error.message,503);}}
 if(path.startsWith('/api/admin/backups/')&&req.method==='GET'){admin();const file=backupFile(dir,path.split('/').pop());if(!file)fail('Backup not found.',404);return {downloadFile:file};}
 if(path==='/api/store'&&req.method==='PATCH'){const s=owner(),d=details(b.details),content=sections(b.sections);db.prepare('UPDATE stores SET published_details=COALESCE(published_details,details),published_sections=COALESCE(published_sections,sections),details=?,sections=?,draft_saved_at=? WHERE id=?').run(JSON.stringify(d),JSON.stringify(content),new Date().toISOString(),s.id);return {ok:true,savedAt:new Date().toISOString()};}
+if(path==='/api/store/launch-check'&&req.method==='POST'){
+ const s=owner();if(b.confirmed!==true)fail('Confirm that you have checked your store.');
+ if(s.status!=='approved')fail('Complete the required setup and wait for admin approval first.',409);
+ if(verificationEnabled&&!u.email_verified)fail('Verify your account email first.',409);
+ requiredBusinessDetails(s.details);details(s.details);
+ if(!s.sections.length||!db.prepare('SELECT id FROM products WHERE store_id=? LIMIT 1').get(s.id))fail('Complete the required store setup first.',409);
+ const completedAt=s.launch_checked_at||new Date().toISOString();db.prepare('UPDATE stores SET launch_checked_at=? WHERE id=?').run(completedAt,s.id);
+ return {ok:true,completedAt};
+}
 if(path==='/api/store/publish'&&req.method==='POST'){const s=owner();if(!s.details.whatsapp)fail('Add your WhatsApp number first.');if(!db.prepare('SELECT id FROM products WHERE store_id=? LIMIT 1').get(s.id))fail('Add at least one product before publishing.');const now=new Date().toISOString();db.prepare('UPDATE stores SET published_details=details,published_sections=sections,published_at=? WHERE id=?').run(now,s.id);return {ok:true,publishedAt:now,message:s.status==='approved'?'Your changes are now live.':'Design published. Your store remains private until administrator approval.'};}
 if(path==='/api/store/discard'&&req.method==='POST'){const s=owner();if(!s.published_details)fail('There is no published design to restore.');db.prepare('UPDATE stores SET details=published_details,sections=published_sections WHERE id=?').run(s.id);return {ok:true};}
 

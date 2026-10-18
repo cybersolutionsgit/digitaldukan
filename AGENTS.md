@@ -19,3 +19,7 @@ Use “Username” for the signup store-link name (internal slug), keeping it co
 After successful signup, show the bilingual /welcome celebration page with the real store link, copy button, dashboard/private-preview actions and social-profile sharing guidance. Clearly state public access and orders start only after admin approval. Keep the confetti local, short-lived and disabled for reduced motion; do not change approval or verification gates.
 
 Show field errors on blur, Enter or an explicit submit attempt, never while typing. Clear stale field and form-summary validation messages when edited; retain server validation. In signup step 3, visually separate ready-made homepages from individual section choices while preserving the existing flow. Show Launch check only as a pending overview checklist task once every mandatory setup task (including approval, and verification when enabled) is done; optional branding must not block it.
+
+The launch-review dialog has an explicit Check complete action. Persist its timestamp independently in stores.launch_checked_at, preserve completion through reloads, logins, draft saves/restores and server restarts. Marking review complete must never publish a design or bypass approval/verification.
+
+The setup checklist is a temporary startup guide: highlight unfinished mandatory tasks, distinguish optional branding, and hide the entire guide once mandatory tasks and the explicit final check are complete. It must stay hidden after reload/login and must not require an optional logo.

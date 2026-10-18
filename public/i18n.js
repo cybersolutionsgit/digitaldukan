@@ -1,5 +1,16 @@
 // Roman Urdu interface copy. Merchant content and input values are never translated.
 export const interfaceTranslations={
+  "Your startup guide": "Shuruat ki rehnumai",
+  "Complete the highlighted steps to get started. This guide disappears when your required setup and final check are complete. Optional steps will not hold you back.": "Jo steps numayan hain unhein poora karein. Zaroori tayyari aur aakhri check ke baad ye guide khud hat jayegi. Optional steps karna lazmi nahi.",
+
+  "Check complete": "Check mukammal karein",
+  "Launch check complete.": "Launch ka check mukammal ho gaya.",
+  "✓ Launch check complete.": "✓ Launch ka check mukammal ho gaya.",
+  "After reviewing your store, confirm below to mark this task as done. This does not publish changes.": "Apna store check karne ke baad neeche button dabayein. Ye task poora ho jayega. Website ki tabdeeliyan publish nahi hongi.",
+  "Confirm that you have checked your store.": "Tasdeeq karein ke aap ne apna store check kar liya hai.",
+  "Complete the required setup and wait for admin approval first.": "Pehle zaroori tayyari poori karein aur admin ke approval ka intezar karein.",
+  "Complete the required store setup first.": "Pehle store ki zaroori tayyari poori karein.",
+
   "Business details": "Business ki maloomat",
   "Pending": "Abhi karna hai",
   "OPTION 1 \u00b7 READY-MADE": "TAREEQA 1 \u00b7 TAYYAR DESIGN",

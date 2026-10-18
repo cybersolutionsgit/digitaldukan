@@ -32,6 +32,8 @@ test('pausing verification preserves records, password reset and manual approval
   r=await request('/api/login','POST',{email:'admin@example.com',password});const admin=r.cookie;
   r=await request('/api/admin/stores/'+storeId,'PATCH',{status:'approved'},admin);assert.equal(r.status,200);
   r=await request('/api/public/pause-shop');assert.equal(r.status,200);
+  assert.equal((await request('/api/products','POST',{name:'Sample product',price:100,images:['/stock/product-cake.webp']},owner)).status,200);
+  r=await request('/api/store/launch-check','POST',{confirmed:true},owner);assert.equal(r.status,200);const checkedAt=r.data.completedAt;
   r=await request('/api/admin/stores/'+storeId+'/account','POST',{email:'changed@example.com',adminPassword:password},admin);assert.equal(r.status,200);assert.equal(r.data.verificationEmailSent,false);assert.equal(messages().length,0);
   r=await request('/api/login','POST',{email:'changed@example.com',password});owner=r.cookie;
   r=await request('/api/session','GET',undefined,owner);assert.equal(r.data.user.emailVerified,false);
@@ -45,6 +47,9 @@ test('pausing verification preserves records, password reset and manual approval
   await stop();await start(true);
   r=await request('/api/session','GET',undefined,pending);assert.equal(r.data.verificationEnabled,true);assert.equal(r.data.user.emailVerified,false);
   r=await request('/api/public/pause-shop');assert.equal(r.status,200,'approved stores stay public after re-enabling');
+  const returningOwner=(await request('/api/login','POST',{email:'changed@example.com',password:'Changed-owner-password-123'})).cookie;
+  assert.equal((await request('/api/session','GET',undefined,returningOwner)).data.store.launch_checked_at,checkedAt,'completion survives a server restart');
+  assert.equal((await request('/api/store/launch-check','POST',{confirmed:true},returningOwner)).status,409,'enabled verification cannot be bypassed by checklist completion');
   r=await request('/api/admin/stores/'+pendingId,'PATCH',{status:'approved'},admin);assert.equal(r.status,400);
   r=await request('/api/auth/resend-verification','POST',{},pending);assert.equal(r.status,200);
   const verification=messages().find(m=>m.kind==='verify'&&m.to==='pending@example.com');assert.ok(verification);
