@@ -1,0 +1,182 @@
+[
+  {
+    "file": "public/stock/product-tshirt.webp",
+    "source": "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab",
+    "license": "https://unsplash.com/license"
+  },
+  {
+    "file": "public/stock/product-shirt.webp",
+    "source": "https://images.unsplash.com/photo-1598033129183-c4f50c736f10",
+    "license": "https://unsplash.com/license"
+  },
+  {
+    "file": "public/stock/product-jeans.webp",
+    "source": "https://images.unsplash.com/photo-1542272604-787c3835535d",
+    "license": "https://unsplash.com/license"
+  },
+  {
+    "file": "public/stock/product-wrap.webp",
+    "source": "https://images.unsplash.com/photo-1434389677669-e08b4cac3105",
+    "license": "https://unsplash.com/license"
+  },
+  {
+    "file": "public/stock/product-headphones.webp",
+    "source": "https://images.unsplash.com/photo-1505740420928-5e560c06d30e",
+    "license": "https://unsplash.com/license"
+  },
+  {
+    "file": "public/stock/product-phone.webp",
+    "source": "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9",
+    "license": "https://unsplash.com/license"
+  },
+  {
+    "file": "public/stock/product-watch.webp",
+    "source": "https://images.unsplash.com/photo-1523275335684-37898b6baf30",
+    "license": "https://unsplash.com/license"
+  },
+  {
+    "file": "public/stock/product-keyboard.webp",
+    "source": "https://images.unsplash.com/photo-1587829741301-dc798b83add3",
+    "license": "https://unsplash.com/license"
+  },
+  {
+    "file": "public/stock/product-cake.webp",
+    "source": "https://images.unsplash.com/photo-1578985545062-69928b1d9587",
+    "license": "https://unsplash.com/license"
+  },
+  {
+    "file": "public/stock/product-cookies.webp",
+    "source": "https://images.unsplash.com/photo-1499636136210-6f4ee915583e",
+    "license": "https://unsplash.com/license"
+  },
+  {
+    "file": "public/stock/product-candle.webp",
+    "source": "https://images.unsplash.com/photo-1603006905003-be475563bc59",
+    "license": "https://unsplash.com/license"
+  },
+  {
+    "file": "public/stock/product-vases.webp",
+    "source": "https://images.unsplash.com/photo-1490312278390-ab64016e0aa9",
+    "license": "https://unsplash.com/license"
+  },
+  {
+    "file": "public/stock/product-cushion.webp",
+    "source": "https://images.unsplash.com/photo-1584100936595-c0654b55a2e2",
+    "license": "https://unsplash.com/license"
+  },
+  {
+    "file": "public/stock/product-dinnerware.webp",
+    "source": "https://images.unsplash.com/photo-1578749556568-bc2c40e68b61",
+    "license": "https://unsplash.com/license"
+  },
+  {
+    "file": "public/stock/product-perfume.webp",
+    "source": "https://images.unsplash.com/photo-1541643600914-78b084683601",
+    "license": "https://unsplash.com/license"
+  },
+  {
+    "file": "public/stock/product-skincare.webp",
+    "source": "https://images.unsplash.com/photo-1556229010-6c3f2c9ca5f8",
+    "license": "https://unsplash.com/license"
+  },
+  {
+    "file": "public/stock/product-broccoli.webp",
+    "source": "https://images.unsplash.com/photo-1459411621453-7b03977f4bfc",
+    "license": "https://unsplash.com/license"
+  },
+  {
+    "file": "public/stock/product-cup.webp",
+    "source": "https://images.unsplash.com/photo-1514228742587-6b1558fcca3d",
+    "license": "https://unsplash.com/license"
+  },
+  {
+    "file": "public/stock/product-notebook.webp",
+    "source": "https://images.unsplash.com/photo-1531346878377-a5be20888e57",
+    "license": "https://unsplash.com/license"
+  },
+  {
+    "file": "public/stock/product-book.webp",
+    "source": "https://images.unsplash.com/photo-1544947950-fa07a98d237f",
+    "license": "https://unsplash.com/license"
+  },
+  {
+    "file": "public/stock/product-petfood.webp",
+    "source": "https://images.unsplash.com/photo-1589924691995-400dc9ecc119",
+    "license": "https://unsplash.com/license"
+  },
+  {
+    "file": "public/stock/product-indoorplant.webp",
+    "source": "https://images.unsplash.com/photo-1485955900006-10f4d324d411",
+    "license": "https://unsplash.com/license"
+  },
+  {
+    "file": "public/stock/product-babyclothes.webp",
+    "source": "https://images.unsplash.com/photo-1522771930-78848d9293e8",
+    "license": "https://unsplash.com/license"
+  },
+  {
+    "file": "public/stock/product-soap.webp",
+    "source": "https://images.unsplash.com/photo-1608571423902-eed4a5ad8108",
+    "license": "https://unsplash.com/license"
+  },
+  {
+    "file": "public/stock/product-giftbox.webp",
+    "source": "https://images.unsplash.com/photo-1549465220-1a8b9238cd48",
+    "license": "https://unsplash.com/license"
+  },
+  {
+    "file": "public/stock/product-giftwrap.webp",
+    "source": "https://images.unsplash.com/photo-1607344645866-009c320b63e0",
+    "license": "https://unsplash.com/license"
+  },
+  {
+    "file": "public/stock/product-ring.webp",
+    "source": "https://images.unsplash.com/photo-1605100804763-247f67b3557e",
+    "license": "https://unsplash.com/license"
+  },
+  {
+    "file": "public/stock/product-bracelet.webp",
+    "source": "https://images.unsplash.com/photo-1611591437281-460bfbe1220a",
+    "license": "https://unsplash.com/license"
+  },
+  {
+    "file": "public/stock/product-necklace.webp",
+    "source": "https://images.unsplash.com/photo-1599643477877-530eb83abc8e",
+    "license": "https://unsplash.com/license"
+  },
+  {
+    "file": "public/stock/product-handbag.webp",
+    "source": "https://images.unsplash.com/photo-1548036328-c9fa89d128fa",
+    "license": "https://unsplash.com/license"
+  },
+  {
+    "file": "public/stock/product-shoulderbag.webp",
+    "source": "https://images.unsplash.com/photo-1584917865442-de89df76afd3",
+    "license": "https://unsplash.com/license"
+  },
+  {
+    "file": "public/stock/product-wovenbag.webp",
+    "source": "https://images.unsplash.com/photo-1590874103328-eac38a683ce7",
+    "license": "https://unsplash.com/license"
+  },
+  {
+    "file": "public/stock/product-browntrainers.webp",
+    "source": "https://images.unsplash.com/photo-1549298916-b41d501d3772",
+    "license": "https://unsplash.com/license"
+  },
+  {
+    "file": "public/stock/product-greenshoes.webp",
+    "source": "https://images.unsplash.com/photo-1560343090-f0409e92791a",
+    "license": "https://unsplash.com/license"
+  },
+  {
+    "file": "public/stock/product-brownies.webp",
+    "source": "https://images.unsplash.com/photo-1606313564200-e75d5e30476c",
+    "license": "https://unsplash.com/license"
+  },
+  {
+    "file": "public/stock/product-heels.webp",
+    "source": "https://images.unsplash.com/photo-1543163521-1bf539c55dd2",
+    "license": "https://unsplash.com/license"
+  }
+]

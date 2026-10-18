@@ -133,3 +133,15 @@ The user's standing cost preference is recorded in AGENTS.md: free resources unt
 - Existing data is migrated with additive SQLite columns. Existing published stores retain their last public details when a first draft is saved. Stock remains manually managed.
 
 Photograph access/review status and the optional bounded `npm run cache:stock` step are documented in [docs/STOCK_PHOTOS.md](docs/STOCK_PHOTOS.md). No photo API key or subscription is required. QR attribution is in [docs/THIRD_PARTY.md](docs/THIRD_PARTY.md).
+
+## Product semantics and consistent cards
+
+Sample inventory is now curated in `public/samples.js` and shared by individual section thumbnails, complete homepage previews and theme demos. Product photos are assigned to specific visible items; lifestyle/room/people photos are reserved for appropriate section or service contexts. Samples never populate or overwrite an owner's inventory. When no matching product photograph is available, an explicit neutral placeholder is shown. New photograph sources are recorded in `docs/PRODUCT_PHOTOS.json`; these optimized WebP assets are bundled and shared across stores.
+
+Featured sections render their own heading/introduction without replacing the first product's title or description. Category tiles filter the visible catalogue, show the selected category/count, and offer Show all. Longer product descriptions are available from the product-title details dialog; thumbnails change the selected product photo.
+
+Product cards stretch equally across every row of a selected layout. Media areas use a consistent size with `object-fit: contain`, title/description slots have a stable height, and actions align at the bottom. The previous first-product oversizing was removed. The fifth layout retains horizontal cards on desktop and uses consistent vertical cards on mobile. Category artwork is contained in its own section and cannot float into the following product grid. Eyebrow text is light only in the actual dark sections.
+
+Store details now include **Selling mode**: Products (cash on delivery) or Services (WhatsApp enquiry). Digital/creative demo themes default to enquiries; an explicit owner choice takes precedence. Service pages use enquiry copy instead of physical-delivery promises. Their saved requests need name/phone and optional requirements, use a server-calculated indicative amount with no delivery fee, and do not confirm a booking or collect a payment. Retail orders retain required delivery addresses, server-calculated delivery charges and COD. Published settings determine the mode; client-provided mode, prices and delivery values cannot override it. Enquiries are identified separately in the owner's order panel and their indicative values are excluded from delivered retail-order totals.
+
+Digital Dukan's new shop/growth/pixel identity is documented in [docs/branding/README.md](docs/branding/README.md). The running site uses compact local SVG assets; the generation concept is only a design reference.
