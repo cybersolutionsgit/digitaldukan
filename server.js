@@ -3,7 +3,7 @@ import http from 'node:http';
 import { themes, themeForNiche } from './public/themes.js';
 import { DatabaseSync } from 'node:sqlite';
 import { randomBytes, scryptSync, timingSafeEqual, createHash } from 'node:crypto';
-import { mkdirSync, readFileSync, writeFileSync, chmodSync, readdirSync, statSync, createReadStream } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync, chmodSync, readdirSync, statSync, createReadStream, unlinkSync } from 'node:fs';
 import { join, extname } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { sendAccountEmail, emailConfigured, appUrl } from './email.js';
@@ -163,6 +163,37 @@ if(path==='/api/products'&&req.method==='POST'){const s=owner(),p=b; if(typeof p
 if(path.startsWith('/api/products/')&&req.method==='DELETE'){const s=owner();db.prepare('DELETE FROM products WHERE id=? AND store_id=?').run(path.split('/').pop(),s.id);return {ok:true};}
 if(path==='/api/orders'&&req.method==='GET'){const s=owner();return db.prepare('SELECT * FROM orders WHERE store_id=? ORDER BY created DESC').all(s.id).map(parse);}
 if(path.startsWith('/api/orders/')&&req.method==='PATCH'){const s=owner();if(!['New','Confirmed','Delivered','Cancelled'].includes(b.status))fail('Invalid order status.');if(!db.prepare('UPDATE orders SET status=? WHERE id=? AND store_id=?').run(b.status,path.split('/').pop(),s.id).changes)fail('Order not found.',404);return {ok:true};}
+const deleteStorePath=path.match(/^\/api\/admin\/stores\/([a-f0-9]{24})$/);
+if(deleteStorePath&&req.method==='DELETE'){
+ admin();rate(req,'admin-store-delete',10,900000,u.id);
+ if(typeof b.adminPassword!=='string'||b.adminPassword.length>128||!verify(b.adminPassword,u.password))fail('Your admin password is incorrect. Confirm your current admin password.',403);
+ const target=db.prepare("SELECT stores.id,stores.slug,stores.user_id FROM stores JOIN users ON users.id=stores.user_id WHERE stores.id=? AND users.role='owner'").get(deleteStorePath[1]);
+ if(!target)fail('Store not found.',404);
+ if(b.confirmSlug!==target.slug)fail('Type the exact store address to confirm deletion.');
+ const uploads=db.prepare('SELECT name FROM upload_usage WHERE user_id=?').all(target.user_id),files=[];
+ db.exec('BEGIN');try{
+  db.prepare('DELETE FROM orders WHERE store_id=?').run(target.id);
+  db.prepare('DELETE FROM products WHERE store_id=?').run(target.id);
+  db.prepare('DELETE FROM stores WHERE id=?').run(target.id);
+  db.prepare('DELETE FROM sessions WHERE user_id=?').run(target.user_id);
+  db.prepare('DELETE FROM auth_tokens WHERE user_id=?').run(target.user_id);
+  // Keep a metadata-only audit trail without retaining a foreign key to the removed account.
+  db.prepare('UPDATE account_audit SET user_id=NULL WHERE user_id=?').run(target.user_id);
+  for(const {name}of uploads){
+   const url='/uploads/'+name;
+   const shared=db.prepare(`SELECT 1 FROM stores WHERE instr(details,?) OR instr(sections,?) OR instr(COALESCE(published_details,''),?) OR instr(COALESCE(published_sections,''),?) UNION ALL SELECT 1 FROM products WHERE instr(details,?) LIMIT 1`).get(url,url,url,url,url);
+   if(shared)db.prepare('UPDATE upload_usage SET user_id=NULL WHERE name=?').run(name);
+   else{db.prepare('DELETE FROM upload_usage WHERE name=?').run(name);if(/^[a-f0-9]{24}\.(png|jpg|webp)$/.test(name))files.push(name);}
+  }
+  db.prepare('DELETE FROM users WHERE id=?').run(target.user_id);
+  db.prepare('INSERT INTO account_audit VALUES(?,?,?,?,?)').run(id(),u.id,null,'store_deleted:'+target.id,new Date().toISOString());
+  db.exec('COMMIT');
+ }catch(error){db.exec('ROLLBACK');throw error;}
+ let cleanupPending=false;
+ for(const name of files)try{unlinkSync(join(dir,'uploads',name));}catch(error){if(error.code!=='ENOENT')cleanupPending=true;}
+ if(cleanupPending)console.error('Deleted store upload cleanup incomplete; administrator should check storage permissions.');
+ return {ok:true,message:'Store, products, orders and owner login permanently deleted.'+(cleanupPending?' Some unused image files need administrator cleanup.':'')};
+}
 const recoveryPath=path.match(/^\/api\/admin\/stores\/([a-f0-9]{24})\/account$/);
 if(recoveryPath&&req.method==='POST'){
  admin();rate(req,'admin-account-recovery',10,900000,u.id);
