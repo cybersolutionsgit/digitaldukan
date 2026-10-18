@@ -1,3 +1,4 @@
+import {categoryKits} from './catalog.js';
 // Curated, local presets: no paid API, remote generation or per-store build.
 const sections=(...rows)=>rows.map(([type,layout])=>({type,layout}));
 export const themes={
@@ -10,7 +11,37 @@ export const themes={
  handmade:{name:'Craft & Story',category:'Handmade & gifts',accent:'#9c5c31',background:'#faf4e9',ink:'#453426',heading:'Small details. A personal touch.',collection:'Discover something thoughtfully made.',art:'handmade',sections:sections(['hero',3],['about',3],['featured',2],['categories',1],['benefits',2],['contact',3]),samples:['Woven bag','Handmade mug','Gift box','Personalized print']},
  other:{name:'Clean Essentials',category:'Other',accent:'#075e47',background:'#f5f9f6',ink:'#1c3028',heading:'Discover what makes us yours.',collection:'Explore our collection.',art:'other',sections:sections(['hero',1],['featured',1],['benefits',1],['contact',1]),samples:['Everyday essential','Customer favorite','New arrival','Signature collection']}
 };
+for(const kit of categoryKits){
+ const family={jewelry:'fashion',footwear:'fashion',bags:'fashion',kids:'fashion',toys:'handmade',books:'handmade',sports:'electronics',outdoors:'home',pets:'home',plants:'home',furniture:'home',kitchen:'home',bakery:'food',coffee:'food',restaurant:'food',wellness:'beauty',salon:'beauty',art:'handmade',automotive:'electronics',tools:'electronics',office:'home',events:'handmade',digital:'electronics'};
+ const existing=themes[kit.id],base=existing||themes[family[kit.id]]||themes.other;
+ themes[kit.id]={...base,...kit,typography:['fashion','handmade','jewelry','bags','books','furniture','bakery','coffee','restaurant','art','events'].includes(kit.id)?'editorial':['kids','toys','pets'].includes(kit.id)?'friendly':'modern',background:existing?.background||kit.accent+'0b',ink:existing?.ink||'#24272c',collection:existing?.collection||'Explore our '+kit.category.toLowerCase()+'.',art:existing?.art||'other',sections:base.sections};
+}
+export {categoryKits};
 const keywords=[
+ ['bakery',/\b(bakery|baking|cake|cookies|bread|mithai)\b/i],
+ ['coffee',/\b(coffee|tea|chai|cafe)\b/i],
+ ['restaurant',/\b(restaurant|catering|meal|lunch|dinner)\b/i],
+ ['jewelry',/\b(jewelry|jewellery|watch|watches|ring|earring)\b/i],
+ ['footwear',/\b(shoes|shoe|footwear|sneaker|sandal)\b/i],
+ ['bags',/\b(bags|handbag|leather goods|purse|wallet)\b/i],
+ ['kids',/\b(baby|babies|kids|children|toddler)\b/i],
+ ['toys',/\b(toys|toy|board game|puzzle)\b/i],
+ ['books',/\b(books|bookshop|stationery|notebook|planner)\b/i],
+ ['sports',/\b(sports|fitness|gym|workout|exercise)\b/i],
+ ['outdoors',/\b(outdoor|camping|hiking|travel gear)\b/i],
+ ['pets',/\b(pet|pets|dog|cat|animal supplies)\b/i],
+ ['plants',/\b(plants|plant|garden|gardening|nursery)\b/i],
+ ['furniture',/\b(furniture|sofa|chair|tables|woodwork)\b/i],
+ ['kitchen',/\b(kitchen|cookware|dining|tableware|crockery)\b/i],
+ ['wellness',/\b(wellness|yoga|relaxation|wellbeing)\b/i],
+ ['salon',/\b(salon|grooming|barber|hair styling)\b/i],
+ ['art',/\b(art|photography|painting|prints)\b/i],
+ ['automotive',/\b(automotive|car|motorcycle|auto parts)\b/i],
+ ['tools',/\b(hardware|tools|repair tools|construction)\b/i],
+ ['office',/\b(office|business supplies|desk)\b/i],
+ ['events',/\b(wedding|celebration|party|event|invitation)\b/i],
+ ['digital',/\b(digital|graphic design|creative services|design studio)\b/i],
+
  ['beauty',/\b(skincare|skin care|cosmetic|makeup|beauty|serum|perfume|salon|hair care)\b/i],
  ['food',/\b(food|grocery|groceries|bakery|baking|cake|cookies|bread|restaurant|snack|organic produce|mithai|khana)\b/i],
  ['electronics',/\b(electronics|phone|mobile|laptop|computer|gadget|headphone|charger|tech|gaming)\b/i],
@@ -19,6 +50,8 @@ const keywords=[
  ['handmade',/\b(handmade|craft|gift|woven|personalized|personalised|artisan)\b/i]
 ];
 export function themeForNiche(category='',niche=''){
+ const explicit=categoryKits.find(k=>k.category===category);
+ if(explicit&&!['fashion','home','beauty','food','electronics','handmade','other'].includes(explicit.id))return explicit.id;
  const match=keywords.find(([,pattern])=>pattern.test(String(niche).slice(0,200)));
  if(match)return match[0];
  return Object.keys(themes).find(key=>key!=='classic'&&themes[key].category===category)||'other';

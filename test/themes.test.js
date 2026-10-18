@@ -12,7 +12,7 @@ async function req(path,method='GET',body,cookie){const r=await fetch(base+path,
 test('niche recommendations handle category, a more specific niche and unknown businesses',()=>{
  assert.equal(themeForNiche('Electronics',''),'electronics');
  assert.equal(themeForNiche('Other','skincare'),'beauty');
- assert.equal(themeForNiche('Other','bakery'),'food');
+ assert.equal(themeForNiche('Other','bakery'),'bakery');
  assert.equal(themeForNiche('Other','women clothing'),'fashion');
  assert.equal(themeForNiche('Other','handmade gifts'),'handmade');
  assert.equal(themeForNiche('Other','book repair service'),'other');

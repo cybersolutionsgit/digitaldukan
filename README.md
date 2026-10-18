@@ -44,13 +44,13 @@ To use `shop.yourdomain.com`, acquire a domain, configure wildcard DNS and HTTPS
 ## Included workflows
 
 - Homepage signup entry and English/Roman Urdu switch on public platform pages only. Dashboards and storefronts remain English.
-- Four-step signup: account, store details, eight section types with three layout choices, and explicit **Subscribe — Free** activation.
+- Four-step signup: account, store details, 30 category themes, five complete homepage styles, and eight section types with five layout choices each, and explicit **Subscribe — Free** activation.
 - One store per account, a unique address, pending approval and private authenticated preview.
 - Editor: choose and reorder sections, customize heading/text, and update branding, contact/social links, delivery/returns details. Image uploads are supported in the owner dashboard; signup images can be skipped and added later.
-- Products: price, optional sale price, stock, up to eight photos, category, description, sizes and colors. Uploads accept PNG/JPEG/WebP under 2 MB.
+- Products: price, optional sale price, stock, up to eight photos, category, description, sizes and colors. Dashboard uploads accept PNG/JPEG/WebP originals up to 15 MB and resize them to a maximum 1600px WebP in the browser; the server still enforces 2 MB per uploaded result and the existing owner/global storage quotas.
 - Cart and checkout: customer name/phone/address, server-calculated PKR total and fixed seller-configured delivery charge, saved order and WhatsApp link. The customer must press Send in WhatsApp.
 - Orders: New / Confirmed / Delivered / Cancelled. Stock is seller-managed and checked per order; stock is not automatically reserved or reduced across orders.
-- Admin: private preview, approve/reject with reason, suspend/reactivate. Normal edits remain live after approval. Rejected stores can resubmit.
+- Admin: private preview, approve/reject with reason, suspend/reactivate. Design and store-information edits save privately until Publish changes. Product and order changes remain immediate. First approval publishes the reviewed design; reactivation preserves the published version. Rejected stores can resubmit.
 - Reviews section is editable text for real feedback; no fabricated customer reviews or review collection system.
 
 ## Current limitations
@@ -110,10 +110,26 @@ In Admin → Store approvals, open **Owner account** for the correct store. Corr
 
 ## Niche-based themes (free resources)
 
-Signup → Store details includes a category and an optional specific niche, such as skincare, bakery or women clothing. Local keyword/category matching recommends a curated theme, colors and section layouts. Supported presets cover fashion, home, beauty, food, electronics, handmade/gifts and a neutral fallback. Owners can select a different theme, customize their brand color, choose other sections, and view the actual themed layouts before subscribing. Sample products shown in the picker are examples, not generated inventory or claims.
+Signup → Store details includes a category and an optional specific niche, such as skincare, bakery or women clothing. Local keyword/category matching recommends a curated theme, colors and section layouts. Thirty category presets cover fashion, jewelry, footwear, bags, kids, toys, books, home, furniture, kitchen, plants, beauty, salons, wellness, groceries, bakery, coffee, restaurants, electronics, sports, travel, pets, art, gifts, automotive, tools, office, events, digital/creative services and a neutral fallback. Owners can select a different theme, customize their brand color, choose other sections, and view the actual themed layouts before subscribing. Sample products shown in the picker are examples, not generated inventory or claims.
 
 Existing stores keep their classic theme until the owner chooses a new one. In **Store details**, select a theme or use **Use suggested theme**, then save. In **Store editor**, **Use suggested sections** updates the selection/layouts; save the homepage to apply it. Existing headings/text for retained sections and custom brand colors are preserved. Changing a niche after manually choosing signup sections keeps those choices unless the owner explicitly reapplies recommendations.
 
-All presets, sample data and SVG illustrations are local. No AI API, paid assets, additional runtime dependency, per-theme network call, per-store process or per-store build is introduced. Store choices are small JSON fields in the existing database. Unsupported niches get a neutral theme rather than a misleading automatic promise. Additional curated niches can be added without a paid service.
+All presets, sample data and SVG illustrations are local. Stock photographs use direct free Unsplash CDN references until cached locally; they do require browser network access. No paid AI API, paid assets, per-store process or per-store build is introduced. The MIT QR module is vendored locally and loaded only on demand. Store choices are small JSON fields in the existing database. Unsupported niches get a neutral theme rather than a misleading automatic promise. Additional curated niches can be added without a paid service.
 
 The user's standing cost preference is recorded in AGENTS.md: free resources until the move to a personal domain/production hosting, with trial limits disclosed and materially better paid-only alternatives explained before any decision. Railway trial credits remain finite; this implementation does not turn the trial into permanent free hosting.
+
+
+## Premium template studio
+
+- `/templates` is the searchable 30-category gallery. Each category has a sample store preview and signup shortcut; `/demo?kit=bakery&layout=4` previews a complete sample design without an account.
+- Forty shared section compositions (8 types × 5 layouts) adapt to the selected category's typography, accent, heading, sample collections and photography. This is not 1,200 independently hand-authored templates. All 30 categories expose five choices for every section.
+- Signup offers five coordinated homepage recipes with real section thumbnails and larger page previews. Owners can still choose any individual section/layout. Recommendations preserve retained owner text/images.
+- The owner Design Studio offers live desktop/mobile preview, inline headline and introductory text editing, image controls for every selected section, free stock-photo selection, uploads, separate desktop/mobile crop focus, brand color, undo for the current editing session, unsaved-change protection and restore-published-design.
+- Save homepage / Save store details updates a private draft. Owners/admins see this draft at `/s/<slug>`; visitors receive the published snapshot, and authenticated owners can use `?published=1` to inspect it. `Publish changes` copies the saved design to the public snapshot. Initial admin approval publishes the reviewed saved design. Approval requirements are unchanged. Publishing while pending never makes a store public.
+- Publishing requires a product. Products, prices, stock and orders are not versioned: they update immediately. Checkout uses the published WhatsApp number and delivery charges so a private settings draft cannot silently change a visitor's order total.
+- The owner setup checklist, launch check, copy/share link and local downloadable QR SVG guide a first store launch. Launch warnings are informational; external links are format-validated, not remotely crawled or guaranteed reachable.
+- Google/sharing settings provide server-rendered page title, description, Open Graph metadata, favicon and canonical URL when APP_URL is configured. Unapproved stores are noindex. Search engines and social crawlers control refresh timing.
+- The platform has a restrained minimalist UI and short action transitions. Reduced-motion disables animation. Fonts use local system fallbacks rather than external Google Fonts.
+- Existing data is migrated with additive SQLite columns. Existing published stores retain their last public details when a first draft is saved. Stock remains manually managed.
+
+Photograph access/review status and the optional bounded `npm run cache:stock` step are documented in [docs/STOCK_PHOTOS.md](docs/STOCK_PHOTOS.md). No photo API key or subscription is required. QR attribution is in [docs/THIRD_PARTY.md](docs/THIRD_PARTY.md).

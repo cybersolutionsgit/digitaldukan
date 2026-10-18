@@ -116,22 +116,23 @@ test('signup and editor previews show real layouts and persist a preview selecti
   await page.locator('[name=facebook]').fill('facebook.com/layoutshop');
   await page.getByRole('button',{name:'Continue'}).click();
   await page.locator('.preview-canvas .store-hero').first().waitFor({state:'attached'});
-  assert.equal(await page.locator('.layout-choice').count(),24);
+  assert.equal(await page.locator('.layout-choice').count(),40);
   const featured=page.locator('[data-section-type=featured]');
   const columnCounts=await featured.locator('.store-product-grid').evaluateAll(nodes=>nodes.map(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length));
-  assert.deepEqual(columnCounts,[3,2,4]);
+  assert.deepEqual(columnCounts,[3,2,4,3,2]);
   const hero=page.locator('[data-section-type=hero]');
   const heroColumns=await hero.locator('.store-hero').evaluateAll(nodes=>nodes.map(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length));
-  assert.deepEqual(heroColumns,[2,1,2]);
+  assert.deepEqual(heroColumns,[2,1,2,2,2]);
+  assert.equal(await hero.locator('.store-layout-4').evaluate(el=>getComputedStyle(el).display),'block');
   await hero.locator('[data-preview-layout="3"]').click();
   await page.getByRole('dialog').waitFor();
-  assert.match(await page.getByRole('dialog').innerText(),/Image first/);
+  assert.match(await page.getByRole('dialog').innerText(),/Photo first/);
   await page.getByRole('button',{name:'Use this layout'}).click();
   assert.equal(await hero.locator('[name=layout-hero][value="3"]').isChecked(),true);
   assert.equal(await hero.locator('.layout-selected:visible').count(),1);
   await page.setViewportSize({width:390,height:844});
   const mobileColumns=await featured.locator('.store-product-grid').evaluateAll(nodes=>nodes.map(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length));
-  assert.deepEqual(mobileColumns,[3,2,4]);
+  assert.deepEqual(mobileColumns,[3,2,4,3,2]);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   await page.screenshot({path:'/tmp/digitaldukan-section-previews-mobile.png',fullPage:true});
   await page.getByRole('button',{name:'Continue'}).click();
@@ -277,12 +278,12 @@ test('niche signup suggests local themes, keeps customization and saves the chos
  await page.locator('[name=category]').selectOption('Electronics');assert.equal(await page.locator('[name=theme]').inputValue(),'electronics');
  await page.locator('[name=niche]').fill('skincare');await page.waitForFunction(()=>document.querySelector('[name=theme]').value==='beauty');
  await page.locator('[name=accent]').evaluate(el=>{el.value='#123456';el.dispatchEvent(new Event('input',{bubbles:true}))});
- await page.locator('[name=niche]').fill('bakery');await page.waitForFunction(()=>document.querySelector('[name=theme]').value==='food');
+ await page.locator('[name=niche]').fill('bakery');await page.waitForFunction(()=>document.querySelector('[name=theme]').value==='bakery');
  assert.equal(await page.locator('[name=accent]').inputValue(),'#123456');assert.deepEqual(themeRequests,[],'recommendations do not make backend or AI requests');
  await page.getByRole('button',{name:'Continue'}).click();
  await page.locator('[data-section-type=hero]').waitFor();assert.equal(await page.locator('[name=layout-hero][value="3"]').isChecked(),true);
  assert.ok(await page.locator('.recommended-badge').count()>0);
- assert.match(await page.locator('[data-section-type=featured] .preview-canvas').first().innerText(),/Sourdough loaf/);
+ assert.match(await page.locator('[data-section-type=featured] .preview-canvas').first().innerText(),/Celebration cake/);
  await page.locator('[name=layout-hero][value="1"]').check();await page.getByRole('button',{name:'Continue'}).click();
  await page.locator('[data-action=signup-back]').click();await page.locator('[data-action=signup-back]').click();
  await page.locator('[name=niche]').fill('skincare');await page.waitForFunction(()=>document.querySelector('[name=theme]').value==='beauty');
@@ -307,5 +308,46 @@ test('niche signup suggests local themes, keeps customization and saves the chos
  assert.equal(await page.locator('[name=title-hero]').inputValue(),'Owner custom heading');
  const recipeSaved=page.waitForResponse(r=>r.url()===base+'/api/store'&&r.request().method()==='PATCH');await page.getByRole('button',{name:'Save homepage'}).click();assert.equal((await recipeSaved).status(),200);
  stored=await(await context.request.get(base+'/api/session')).json();assert.equal(stored.store.sections.find(s=>s.type==='hero').title,'Owner custom heading');assert.equal(stored.store.details.accent,'#123456');
+ assert.deepEqual(errors,[]);await context.close();
+});
+
+test('premium studio supports complete recipes, section photos, live edits, undo and explicit publishing',async()=>{
+ const context=await browser.newContext({viewport:{width:1440,height:1000},reducedMotion:'reduce'});const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
+ // The cloud allowlist may block stock providers. This test validates UI with a local fixture,
+ // not the remote provider's availability or the suitability of individual photos.
+ const fixture=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aNmcAAAAASUVORK5CYII=','base64');
+ await context.route('https://images.unsplash.com/**',route=>route.fulfill({contentType:'image/png',body:fixture}));
+ await page.goto(base+'/templates');await page.locator('.gallery-card').first().waitFor();assert.equal(await page.locator('.gallery-card').count(),30);
+ await page.locator('#gallery-search').fill('bakery');assert.equal(await page.locator('.gallery-card:visible').count(),1);await page.getByRole('link',{name:'Start with this theme'}).filter({visible:true}).click();
+ await page.locator('[name=email]').fill('premium-studio@example.com');await page.locator('[name=password]').fill(password);await page.getByRole('button',{name:'Continue'}).click();assert.equal(await page.locator('[name=theme]').inputValue(),'bakery');
+ await page.locator('[name=name]').fill('Crumb Studio');await page.locator('[name=slug]').fill('premium-studio');await page.locator('[name=whatsapp]').fill('923001234567');await page.getByRole('button',{name:'Continue'}).click();
+ await page.locator('[data-recipe="3"]').click();await page.getByRole('dialog').waitFor();assert.ok(await page.locator('.modal .store-layout-4').count()>1);await page.getByRole('button',{name:'Use this homepage'}).click();assert.equal(await page.locator('[name=layout-hero][value="4"]').isChecked(),true);assert.equal(await page.locator('.layout-choice').count(),40);
+ await page.getByRole('button',{name:'Continue'}).click();await page.locator('[name=subscribed]').check();await page.getByRole('button',{name:'Subscribe'}).click();await page.waitForURL(base+'/dashboard');await page.locator('.launch-checklist').waitFor();
+ await page.getByRole('button',{name:'Store editor',exact:false}).click();await page.locator('#studio-preview-canvas .store-hero').waitFor();
+ await page.locator('[name=title-hero]').fill('Fresh from our oven');await page.waitForFunction(()=>document.querySelector('#studio-preview-canvas h1')?.textContent==='Fresh from our oven');
+ await page.getByRole('button',{name:'Undo',exact:true}).click();assert.equal(await page.locator('[name=title-hero]').inputValue(),'');await page.locator('[name=title-hero]').fill('Fresh from our oven');
+ await page.locator('#studio-preview-canvas h1').fill('Edited on the canvas');await page.locator('#studio-preview-canvas h1').press('Tab');assert.equal(await page.locator('[name=title-hero]').inputValue(),'Edited on the canvas');await page.locator('[name=imagePosition-hero]').selectOption('top');await page.locator('[name=mobileImagePosition-hero]').selectOption('bottom');await page.locator('[data-stock-for=hero]').click();await page.locator('#stock-search').fill('bakery');assert.equal(await page.locator('[data-photo-key]:visible').count(),1);await page.locator('[data-photo-key=bakery]').click();
+ assert.match(await page.locator('[name=image-hero]').inputValue(),/images.unsplash.com/);await page.locator('[data-device=mobile]').click();await page.waitForTimeout(200);assert.equal(await page.locator('.studio-preview-wrap.mobile-preview').count(),1);assert.equal(await page.locator('#studio-preview-canvas .store-hero>.kit-media img').evaluate(el=>getComputedStyle(el).objectPosition),'50% 100%');
+ await page.getByRole('button',{name:'Publish changes',exact:true}).click();assert.match(await page.locator('#toast.error').innerText(),/Save your changes/);
+ const saved=page.waitForResponse(r=>r.url()===base+'/api/store'&&r.request().method()==='PATCH');await page.getByRole('button',{name:'Save homepage'}).click();assert.equal((await saved).status(),200);await page.locator('#studio-save-state').waitFor();
+ await page.locator('[data-clear-photo=hero]').click();await page.getByRole('button',{name:'Save homepage'}).click();await page.locator('#studio-save-state').waitFor();assert.equal((await(await context.request.get(base+'/api/session')).json()).store.sections.find(s=>s.type==='hero').image,'','cleared photos stay cleared after saving');
+ await page.getByRole('button',{name:'Products',exact:false}).click();await page.getByRole('button',{name:'Add product',exact:false}).click();await page.locator('[name=name]').fill('Cookie box');await page.locator('[name=price]').fill('900');await page.getByRole('button',{name:'Save product'}).click();await page.locator('td:has-text("Cookie box")').waitFor();
+ await page.getByRole('button',{name:'Store details',exact:false}).click();const image=await page.evaluate(()=>{const canvas=document.createElement('canvas');canvas.width=2000;canvas.height=1000;canvas.getContext('2d').fillRect(0,0,2000,1000);return canvas.toDataURL('image/png').split(',')[1]});
+ await page.locator('[data-upload-target=banner]').setInputFiles({name:'test-banner.png',mimeType:'image/png',buffer:Buffer.from(image,'base64')});await page.waitForFunction(()=>document.querySelector('[name=banner]').value.startsWith('/uploads/'));const uploaded=await page.locator('[name=banner]').inputValue();const dimensions=await page.evaluate(async url=>{const bitmap=await createImageBitmap(await(await fetch(url)).blob());return [bitmap.width,bitmap.height]},uploaded);assert.deepEqual(dimensions,[1600,800]);
+ await page.locator('.seo-settings summary').click();await page.locator('[name=seoTitle]').fill('Crumb Studio — Fresh bakes');await page.getByRole('button',{name:'Save store details'}).click();await page.locator('#settings-form').waitFor();
+ await page.getByRole('button',{name:'Publish changes',exact:true}).click();await page.locator('#toast').filter({hasText:'Design published'}).waitFor();
+ await page.getByRole('button',{name:'Overview',exact:false}).click();await page.getByRole('button',{name:'Share link & QR code'}).click();await page.locator('#store-qr svg').waitFor();assert.ok((await page.locator('#store-qr svg path').getAttribute('d')).length>100);await page.getByRole('button',{name:'Close',exact:true}).click();
+ await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.deepEqual(errors,[]);await context.close();
+});
+
+test('all five kit compositions render desktop and mobile without overflow or broken section structure',async()=>{
+ const context=await browser.newContext(),page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await context.route('https://images.unsplash.com/**',route=>route.abort());
+ for(const layout of [1,2,3,4,5])for(const width of [1440,390]){
+  await page.setViewportSize({width,height:960});await page.goto(base+'/demo?kit=fashion&layout='+layout);await page.locator('.storefront').waitFor();
+  assert.equal(await page.locator('.store-hero .store-hero-copy').count(),1);assert.equal(await page.locator('.store-hero>.kit-media img').count(),1);assert.ok(await page.locator('.storefront [data-section=contact]').count());
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`layout ${layout}, width ${width}`);
+  assert.ok(await page.locator('.store-hero h1').evaluate(el=>el.getBoundingClientRect().height>30));
+ }
  assert.deepEqual(errors,[]);await context.close();
 });
