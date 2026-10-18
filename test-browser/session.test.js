@@ -13,7 +13,7 @@ let server, browser;
 
 before(async () => {
   server = spawn(process.execPath, ['server.js'], {
-    env: { ...process.env, PORT: '3471', DATA_DIR: dir, NODE_ENV: 'test', EMAIL_TRANSPORT: 'test', APP_URL: base, AUTO_BACKUPS: 'false',
+    env: { ...process.env, PORT: '3471', DATA_DIR: dir, NODE_ENV: 'test', EMAIL_VERIFICATION_ENABLED: 'true', EMAIL_TRANSPORT: 'test', APP_URL: base, AUTO_BACKUPS: 'false',
       ADMIN_EMAIL: 'admin@example.com', ADMIN_PASSWORD: password },
     stdio: ['ignore', 'pipe', 'pipe'],
   });

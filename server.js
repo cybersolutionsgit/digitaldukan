@@ -8,6 +8,11 @@ import { join, extname } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { sendAccountEmail, emailConfigured, appUrl } from './email.js';
 import { createBackup, listBackups, backupFile, backupRetention } from './backups.js';
+// Temporarily paused at the owner's request. Flip the default to true to restore
+// verification in one change; an explicit hosting variable overrides this default.
+const emailVerificationDefault=false;
+const verificationEnabled=process.env.EMAIL_VERIFICATION_ENABLED===undefined?emailVerificationDefault:process.env.EMAIL_VERIFICATION_ENABLED==='true';
+const verificationPausedMessage='Email verification is temporarily paused. You can continue without verifying your email; admin approval is still required.';
 const dir=process.env.DATA_DIR||'./data'; mkdirSync(dir,{recursive:true,mode:0o700});
 const db=new DatabaseSync(join(dir,'digitaldukan.sqlite'));chmodSync(join(dir,'digitaldukan.sqlite'),0o600);
 db.exec(`PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;
@@ -72,6 +77,7 @@ function resetRates(req,email){
 }
 const tokenHash=token=>createHash('sha256').update(token).digest('hex');
 async function accountEmail(user,kind){
+  if(kind==='verify'&&!verificationEnabled)fail(verificationPausedMessage,503);
   if(!emailConfigured())fail('Email delivery is not configured. Please contact the site administrator.',503);
   try{appUrl();}catch{fail('The email website address is not configured correctly. Ask the administrator to check APP_URL.',503);}
   const token=randomBytes(32).toString('hex'),hashed=tokenHash(token),expires=Date.now()+(kind==='verify'?86400000:1800000);
@@ -110,8 +116,8 @@ function liveVersion(s){return s.published_details?{...s,details:JSON.parse(s.pu
 async function api(req,res,path,b){const u=sessionUser(req);const auth=()=>{if(!u)fail('Please sign in.',401);return u};const owner=()=>{const s=storeFor(auth());if(!s)fail('Store not found.',404);return s};const admin=()=>{if(auth().role!=='admin')fail('Admin access required.',403)};
 if(path==='/api/site'&&req.method==='GET'){const domain=process.env.BASE_DOMAIN,host=(req.headers.host||'').split(':')[0];return {slug:domain&&host.endsWith('.'+domain)?host.slice(0,-domain.length-1):null};}
 if(path==='/api/upload'&&req.method==='POST'){const owningStore=owner();rate(req,'upload',40,900000,owningStore.user_id);if(!['image/png','image/jpeg','image/webp'].includes(b.type)||typeof b.data!=='string'||b.data.length>2800000)fail('Choose a PNG, JPEG or WebP image under 2 MB.');const bytes=Buffer.from(b.data,'base64');if(bytes.length>2*1024*1024)fail('Image must be under 2 MB.');const type=bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]))?'png':bytes[0]===255&&bytes[1]===216&&bytes[2]===255?'jpg':bytes.toString('ascii',0,4)==='RIFF'&&bytes.toString('ascii',8,12)==='WEBP'?'webp':null;if(!type)fail('Invalid image file.');const used=db.prepare('SELECT COALESCE(SUM(bytes),0) AS total FROM upload_usage WHERE user_id=?').get(owningStore.user_id).total;if(used+bytes.length>32*1024*1024)fail('Your test-store photo storage limit (32 MB) has been reached.');const uploadsDir=join(dir,'uploads');const globalUsed=statSync(uploadsDir,{throwIfNoEntry:false})?readdirSync(uploadsDir).reduce((sum,name)=>sum+statSync(join(uploadsDir,name)).size,0):0;if(globalUsed+bytes.length>64*1024*1024)fail('Photo storage is full. Ask the administrator to increase storage.');const filename=id()+'.'+type;mkdirSync(join(dir,'uploads'),{recursive:true});writeFileSync(join(dir,'uploads',filename),bytes);db.prepare('INSERT INTO upload_usage VALUES(?,?,?)').run(filename,owningStore.user_id,bytes.length);return {url:'/uploads/'+filename};}
-if(path==='/api/session'&&req.method==='GET')return {user:u?{id:u.id,email:u.email,role:u.role,emailVerified:Boolean(u.email_verified)}:null,store:u?storeFor(u):null,emailEnabled:emailConfigured()};
-if(path==='/api/signup'&&req.method==='POST'){rate(req,'signup');const email=String(b.email||'').trim().toLowerCase();if(!emailValid(email))fail('Enter a valid email.');if(typeof b.password!=='string'||b.password.length<8||b.password.length>128)fail('Password must have 8–128 characters.');const slug=String(b.slug||'').toLowerCase();if(!/^[a-z0-9][a-z0-9-]{2,38}[a-z0-9]$/.test(slug)||['admin','api','www','dashboard','login','signup','store','digitaldukan'].includes(slug))fail('Choose a store address of 4–40 letters, numbers or hyphens.');if(b.subscribed!==true)fail('Activate the free subscription to continue.');const initial={...b.details};if(!initial.theme){initial.theme=themeForNiche(initial.category,initial.niche);if(!initial.accent)initial.accent=themes[initial.theme].accent;}const d=details(initial),s=sections(b.sections);if(db.prepare('SELECT id FROM users WHERE email=?').get(email))fail('This email already has an account.');if(db.prepare('SELECT id FROM stores WHERE slug=?').get(slug))fail('This store address is already taken.');const uid=id();db.exec('BEGIN');try{db.prepare('INSERT INTO users(id,email,password,role) VALUES(?,?,?,?)').run(uid,email,hash(b.password),'owner');db.prepare('INSERT INTO stores(id,user_id,slug,status,details,sections) VALUES(?,?,?,?,?,?)').run(id(),uid,slug,'pending',JSON.stringify(d),JSON.stringify(s));db.exec('COMMIT')}catch(e){db.exec('ROLLBACK');throw e}login(res,{id:uid});let verificationEmailSent=false;try{if(emailConfigured()){await accountEmail({id:uid,email},'verify');verificationEmailSent=true;}}catch{ /* Account already exists; dashboard offers a resend without repeating signup. */ }return {ok:true,verificationEmailSent};}
+if(path==='/api/session'&&req.method==='GET')return {user:u?{id:u.id,email:u.email,role:u.role,emailVerified:Boolean(u.email_verified)}:null,store:u?storeFor(u):null,emailEnabled:emailConfigured(),verificationEnabled};
+if(path==='/api/signup'&&req.method==='POST'){rate(req,'signup');const email=String(b.email||'').trim().toLowerCase();if(!emailValid(email))fail('Enter a valid email.');if(typeof b.password!=='string'||b.password.length<8||b.password.length>128)fail('Password must have 8–128 characters.');const slug=String(b.slug||'').toLowerCase();if(!/^[a-z0-9][a-z0-9-]{2,38}[a-z0-9]$/.test(slug)||['admin','api','www','dashboard','login','signup','store','digitaldukan'].includes(slug))fail('Choose a store address of 4–40 letters, numbers or hyphens.');if(b.subscribed!==true)fail('Activate the free subscription to continue.');const initial={...b.details};if(!initial.theme){initial.theme=themeForNiche(initial.category,initial.niche);if(!initial.accent)initial.accent=themes[initial.theme].accent;}const d=details(initial),s=sections(b.sections);if(db.prepare('SELECT id FROM users WHERE email=?').get(email))fail('This email already has an account.');if(db.prepare('SELECT id FROM stores WHERE slug=?').get(slug))fail('This store address is already taken.');const uid=id();db.exec('BEGIN');try{db.prepare('INSERT INTO users(id,email,password,role) VALUES(?,?,?,?)').run(uid,email,hash(b.password),'owner');db.prepare('INSERT INTO stores(id,user_id,slug,status,details,sections) VALUES(?,?,?,?,?,?)').run(id(),uid,slug,'pending',JSON.stringify(d),JSON.stringify(s));db.exec('COMMIT')}catch(e){db.exec('ROLLBACK');throw e}login(res,{id:uid});let verificationEmailSent=false;try{if(verificationEnabled&&emailConfigured()){await accountEmail({id:uid,email},'verify');verificationEmailSent=true;}}catch{ /* Account already exists; dashboard offers a resend without repeating signup. */ }return {ok:true,verificationEmailSent};}
 if(path==='/api/login'&&req.method==='POST'){rate(req,'login-global',300);rate(req,'login-account',15,900000,String(b.email||'').trim().toLowerCase());const r=db.prepare('SELECT * FROM users WHERE email=?').get(String(b.email||'').trim().toLowerCase());const passwordMatches=typeof b.password==='string'&&b.password.length<=128&&verify(b.password,r?.password||dummyPasswordHash);if(!r||!passwordMatches)fail('Email or password is incorrect.',401);login(res,r);return {ok:true,role:r.role};}
 if(path==='/api/logout'&&req.method==='POST'){const t=req.headers.cookie?.match(/session=([a-f0-9]+)/)?.[1];if(t)db.prepare('DELETE FROM sessions WHERE token=?').run(createHash('sha256').update(t).digest('hex'));res.setHeader('Set-Cookie','session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0'+(process.env.NODE_ENV==='production'?'; Secure':''));return {ok:true};}
 if(path==='/api/auth/forgot-password'&&req.method==='POST'){
@@ -135,11 +141,12 @@ if(path==='/api/auth/reset-password'&&req.method==='POST'){
  return {ok:true};
 }
 if(path==='/api/auth/resend-verification'&&req.method==='POST'){
- auth();if(u.email_verified)return {ok:true,message:'Your email is already verified.'};
+ auth();if(!verificationEnabled)fail(verificationPausedMessage,503);if(u.email_verified)return {ok:true,message:'Your email is already verified.'};
  rate(req,'verify-user',1,60000,u.id);rate(req,'verify-ip',20);
  await accountEmail(u,'verify');return {ok:true,message:'Verification email sent. Check your inbox and spam folder.'};
 }
 if(path==='/api/auth/verify-email'&&req.method==='POST'){
+ if(!verificationEnabled)fail(verificationPausedMessage,503);
  rate(req,'verify-token',30);const token=usableToken(b.token,'verify');
  db.exec('BEGIN');try{db.prepare('UPDATE users SET email_verified=1 WHERE id=?').run(token.user_id);db.prepare('DELETE FROM auth_tokens WHERE user_id=? AND kind=?').run(token.user_id,'verify');db.exec('COMMIT');}catch(error){db.exec('ROLLBACK');throw error;}return {ok:true};
 }
@@ -178,8 +185,8 @@ if(recoveryPath&&req.method==='POST'){
   db.exec('COMMIT');
  }catch(error){db.exec('ROLLBACK');throw error;}
  let verificationEmailSent=false;
- if(emailChanged&&emailConfigured()){try{await accountEmail({id:target.id,email},'verify');verificationEmailSent=true;}catch{}}
- return {ok:true,emailChanged,passwordChanged,verificationEmailSent,message:'Owner account updated. All previous owner sessions and account links have been revoked.'+(emailChanged?(verificationEmailSent?' Verification email sent to the new address.':' The new address needs verification; the owner can request a verification email after signing in.'):'')};
+ if(emailChanged&&verificationEnabled&&emailConfigured()){try{await accountEmail({id:target.id,email},'verify');verificationEmailSent=true;}catch{}}
+ return {ok:true,emailChanged,passwordChanged,verificationEmailSent,message:'Owner account updated. All previous owner sessions and account links have been revoked.'+(emailChanged&&verificationEnabled?(verificationEmailSent?' Verification email sent to the new address.':' The new address needs verification; the owner can request a verification email after signing in.'):'')};
 }
 if(path==='/api/admin/stores'&&req.method==='GET'){admin();return db.prepare('SELECT stores.*, users.email, users.email_verified FROM stores JOIN users ON users.id=stores.user_id').all().map(parse);}
 if(path.startsWith('/api/admin/stores/')&&req.method==='PATCH'){
@@ -189,7 +196,7 @@ if(path.startsWith('/api/admin/stores/')&&req.method==='PATCH'){
  const target=db.prepare('SELECT stores.status,users.email_verified FROM stores JOIN users ON users.id=stores.user_id WHERE stores.id=?').get(storeId);
  if(!target)fail('Store not found.',404);
  const firstApproval=b.status==='approved'&&['pending','rejected'].includes(target.status);
- if(firstApproval&&!target.email_verified)fail('The store owner must verify their email before approval.');
+ if(verificationEnabled&&firstApproval&&!target.email_verified)fail('The store owner must verify their email before approval.');
  if(firstApproval)db.prepare('UPDATE stores SET status=?,reason=?,published_details=details,published_sections=sections,published_at=? WHERE id=?').run(b.status,String(b.reason||'').slice(0,1000),new Date().toISOString(),storeId);
  else db.prepare('UPDATE stores SET status=?,reason=? WHERE id=?').run(b.status,String(b.reason||'').slice(0,1000),storeId);
  return {ok:true};

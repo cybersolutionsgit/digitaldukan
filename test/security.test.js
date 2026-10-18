@@ -11,7 +11,7 @@ import { restoreBackup } from '../backups.js';
 const exec=promisify(execFile),dir=mkdtempSync(join(tmpdir(),'dukan-security-')),base='http://127.0.0.1:3482';
 const password='Security-test-password-123';let child,ownerCookie,adminCookie,ownerId,storeId;
 async function start(){
- child=spawn(process.execPath,['server.js'],{env:{...process.env,PORT:'3482',DATA_DIR:dir,NODE_ENV:'test',EMAIL_TRANSPORT:'test',APP_URL:base,AUTO_BACKUPS:'false',BACKUP_KEEP:'invalid',ADMIN_EMAIL:'admin@example.com',ADMIN_PASSWORD:password},stdio:['ignore','pipe','pipe']});
+ child=spawn(process.execPath,['server.js'],{env:{...process.env,PORT:'3482',DATA_DIR:dir,NODE_ENV:'test',EMAIL_VERIFICATION_ENABLED:'true',EMAIL_TRANSPORT:'test',APP_URL:base,AUTO_BACKUPS:'false',BACKUP_KEEP:'invalid',ADMIN_EMAIL:'admin@example.com',ADMIN_PASSWORD:password},stdio:['ignore','pipe','pipe']});
  await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Startup timed out')),10000);child.stdout.once('data',()=>{clearTimeout(timer);resolve()});child.once('exit',()=>{clearTimeout(timer);reject(Error('Server exited'))})});
 }
 async function stop(){if(child?.exitCode===null)await new Promise(resolve=>{child.once('exit',resolve);child.kill()})}
