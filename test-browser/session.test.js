@@ -1,3 +1,4 @@
+import {businessDetails} from '../test/fixtures.js';
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
@@ -34,6 +35,8 @@ after(async () => {
   rmSync(dir, { recursive: true, force: true });
 });
 
+async function completeBusinessFields(page){for(const [key,value]of Object.entries(businessDetails)){const field=page.locator(`#signup-form [name="${key}"]`);if(await field.count()&&key!=='category'&&!await field.inputValue())await field.fill(value);}}
+
 async function assertGuest(page) {
   await page.goto(base);
   await page.locator('.nav-actions a[href="/login"]').waitFor();
@@ -65,7 +68,7 @@ test('owner session persists across homepage, reload, new tab, login and signup 
   await assertGuest(page);
   const response = await context.request.post(base + '/api/signup', { data: {
     email: 'owner@example.com', password, slug: 'session-shop', subscribed: true,
-    details: { name: 'Session Shop', whatsapp: '923001234567', delivery: 200 },
+    details:{...businessDetails, name: 'Session Shop', whatsapp: '923001234567', delivery: 200 },
     sections: [{ type: 'hero', layout: 1 }, { type: 'featured', layout: 1 }],
   }});
   assert.equal(response.status(), 200);
@@ -111,7 +114,7 @@ test('signup and editor previews show real layouts and persist a preview selecti
   await page.getByRole('button',{name:'Continue'}).click();
   await page.locator('[name=slug]').fill('layout-shop');
   await page.locator('[name=name]').fill('Layout Shop');
-  await page.locator('[name=whatsapp]').fill('923001234567');
+  await page.locator('[name=whatsapp]').fill('923001234567');await completeBusinessFields(page);
   await page.locator('[name=instagram]').fill('insta.com/abc');
   await page.locator('[name=facebook]').fill('facebook.com/layoutshop');
   await page.getByRole('button',{name:'Continue'}).click();
@@ -155,15 +158,15 @@ test('signup and editor previews show real layouts and persist a preview selecti
   assert.equal(session.store.details.instagram,'https://insta.com/abc');
   assert.equal(session.store.details.facebook,'https://facebook.com/layoutshop');
   await page.getByRole('button',{name:'Store details',exact:false}).click();
-  await page.locator('[name=website]').fill('example.com/myshop');
+  assert.equal(await page.locator('[name=website]').count(),0);await page.locator('[name=instagram]').fill('insta.com/updated');
   const detailsSaved=page.waitForResponse(r=>r.url()===base+'/api/store'&&r.request().method()==='PATCH');
   await page.getByRole('button',{name:'Save store details'}).click();
   assert.equal((await detailsSaved).status(),200);
-  await page.waitForFunction(()=>document.querySelector('[name=website]')?.value==='https://example.com/myshop');
-  assert.equal(await page.locator('[name=website]').inputValue(),'https://example.com/myshop');
+  await page.waitForFunction(()=>document.querySelector('[name=instagram]')?.value==='https://insta.com/updated');
+  assert.equal(await page.locator('[name=instagram]').inputValue(),'https://insta.com/updated');
   await page.goto(base+'/s/layout-shop');
   await page.locator('.store-hero.store-layout-2').waitFor();
-  assert.equal(await page.getByRole('link',{name:'instagram',exact:false}).getAttribute('href'),'https://insta.com/abc');
+  assert.equal(await page.getByRole('link',{name:'instagram',exact:false}).getAttribute('href'),'https://insta.com/updated');
   assert.deepEqual(errors,[]);
   await context.close();
 });
@@ -273,7 +276,7 @@ test('niche signup suggests local themes, keeps customization and saves the chos
  page.on('pageerror',error=>errors.push(error.message));
  await page.goto(base+'/signup');await page.locator('[name=email]').fill('niche-browser@example.com');await page.locator('[name=password]').fill(password);
  await page.getByRole('button',{name:'Continue'}).click();
- await page.locator('[name=slug]').fill('niche-browser');await page.locator('[name=name]').fill('Niche Shop');await page.locator('[name=whatsapp]').fill('923001234567');
+ await page.locator('[name=slug]').fill('niche-browser');await page.locator('[name=name]').fill('Niche Shop');await page.locator('[name=whatsapp]').fill('923001234567');await completeBusinessFields(page);
  const themeRequests=[];page.on('request',r=>{if(r.url().startsWith(base+'/api/'))themeRequests.push(r.url())});
  await page.locator('[name=category]').selectOption('Electronics');assert.equal(await page.locator('[name=theme]').inputValue(),'electronics');
  await page.locator('[name=niche]').fill('skincare');await page.waitForFunction(()=>document.querySelector('[name=theme]').value==='beauty');
@@ -295,7 +298,7 @@ test('niche signup suggests local themes, keeps customization and saves the chos
  let stored=await(await context.request.get(base+'/api/session')).json();assert.equal(stored.store.details.theme,'beauty');assert.equal(stored.store.details.accent,'#123456');
  await page.getByRole('button',{name:'Store details',exact:false}).click();await page.locator('[name=theme]').selectOption('electronics');
  const saved=page.waitForResponse(r=>r.url()===base+'/api/store'&&r.request().method()==='PATCH');await page.getByRole('button',{name:'Save store details'}).click();assert.equal((await saved).status(),200);
- await page.getByRole('button',{name:'Products',exact:false}).click();await page.getByRole('button',{name:'Add product',exact:false}).click();
+ await page.locator('.sidebar [data-tab=products]').click();await page.getByRole('button',{name:'Add product',exact:false}).click();
  await page.locator('[name=name]').fill('Wireless headphones');await page.locator('[name=price]').fill('2400');await page.locator('[name=category]').fill('Electronics');await page.locator('[name=category]').blur();
  await page.getByRole('button',{name:'Save product'}).click();await page.locator('td:has-text("Wireless headphones")').waitFor();
  await page.goto(base+'/s/niche-browser');await page.locator('.storefront[data-theme=electronics]').waitFor();
@@ -303,7 +306,7 @@ test('niche signup suggests local themes, keeps customization and saves the chos
  const color=await page.locator('.storefront').evaluate(el=>getComputedStyle(el).getPropertyValue('--brand').trim());assert.equal(color,'#123456');
  await page.screenshot({path:'/tmp/digitaldukan-niche-store.png',fullPage:true});
  await page.goto(base+'/dashboard');await page.getByRole('button',{name:'Store editor',exact:false}).click();
- await page.locator('[name=title-hero]').fill('Owner custom heading');await page.locator('[name=layout-hero][value="3"]').check();
+ await page.locator('#studio-preview-canvas h1').fill('Owner custom heading');await page.locator('#studio-preview-canvas h1').blur();await page.locator('[name=layout-hero][value="3"]').check();
  await page.locator('[data-action=suggest-sections]').click();assert.equal(await page.locator('[name=layout-hero][value="2"]').isChecked(),true);
  assert.equal(await page.locator('[name=title-hero]').inputValue(),'Owner custom heading');
  const recipeSaved=page.waitForResponse(r=>r.url()===base+'/api/store'&&r.request().method()==='PATCH');await page.getByRole('button',{name:'Save homepage'}).click();assert.equal((await recipeSaved).status(),200);
@@ -319,18 +322,18 @@ test('premium studio supports complete recipes, section photos, live edits, undo
  await page.goto(base+'/templates');await page.locator('.gallery-card').first().waitFor();assert.equal(await page.locator('.gallery-card').count(),30);
  await page.locator('#gallery-search').fill('bakery');assert.equal(await page.locator('.gallery-card:visible').count(),1);await page.getByRole('link',{name:'Start with this theme'}).filter({visible:true}).click();
  await page.locator('[name=email]').fill('premium-studio@example.com');await page.locator('[name=password]').fill(password);await page.getByRole('button',{name:'Continue'}).click();assert.equal(await page.locator('[name=theme]').inputValue(),'bakery');
- await page.locator('[name=name]').fill('Crumb Studio');await page.locator('[name=slug]').fill('premium-studio');await page.locator('[name=whatsapp]').fill('923001234567');await page.getByRole('button',{name:'Continue'}).click();
+ await page.locator('[name=name]').fill('Crumb Studio');await page.locator('[name=slug]').fill('premium-studio');await page.locator('[name=whatsapp]').fill('923001234567');await completeBusinessFields(page);await page.getByRole('button',{name:'Continue'}).click();
  await page.locator('[data-recipe="3"]').click();await page.getByRole('dialog').waitFor();assert.ok(await page.locator('.modal .store-layout-4').count()>1);await page.getByRole('button',{name:'Use this homepage'}).click();assert.equal(await page.locator('[name=layout-hero][value="4"]').isChecked(),true);assert.equal(await page.locator('.layout-choice').count(),40);
  await page.getByRole('button',{name:'Continue'}).click();await page.locator('[name=subscribed]').check();await page.getByRole('button',{name:'Subscribe'}).click();await page.waitForURL(base+'/dashboard',{timeout:10000}).catch(async error=>{throw new Error((await page.locator('.form-error').innerText())||error.message)});await page.locator('.launch-checklist').waitFor();
  await page.getByRole('button',{name:'Store editor',exact:false}).click();await page.locator('#studio-preview-canvas .store-hero').waitFor();
- await page.locator('[name=title-hero]').fill('Fresh from our oven');await page.waitForFunction(()=>document.querySelector('#studio-preview-canvas h1')?.textContent==='Fresh from our oven');
- await page.getByRole('button',{name:'Undo',exact:true}).click();assert.equal(await page.locator('[name=title-hero]').inputValue(),'');await page.locator('[name=title-hero]').fill('Fresh from our oven');
- await page.locator('#studio-preview-canvas h1').fill('Edited on the canvas');await page.locator('#studio-preview-canvas h1').press('Tab');assert.equal(await page.locator('[name=title-hero]').inputValue(),'Edited on the canvas');await page.locator('[name=imagePosition-hero]').selectOption('top');await page.locator('[name=mobileImagePosition-hero]').selectOption('bottom');await page.locator('[data-stock-for=hero]').click();await page.locator('#stock-search').fill('bakery');assert.equal(await page.locator('[data-photo-key]:visible').count(),1);await page.locator('[data-photo-key=bakery]').click();
+ await page.locator('#studio-preview-canvas h1').fill('Fresh from our oven');await page.locator('#studio-preview-canvas h1').blur();await page.waitForFunction(()=>document.querySelector('#studio-preview-canvas h1')?.textContent==='Fresh from our oven');
+ await page.getByRole('button',{name:'Undo',exact:true}).click();assert.equal(await page.locator('[name=title-hero]').inputValue(),'');await page.locator('#studio-preview-canvas h1').fill('Fresh from our oven');await page.locator('#studio-preview-canvas h1').blur();
+ await page.locator('#studio-preview-canvas h1').fill('Edited on the canvas');await page.locator('#studio-preview-canvas h1').press('Tab');assert.equal(await page.locator('[name=title-hero]').inputValue(),'Edited on the canvas');await page.locator('[data-section-photo=hero]').click();await page.locator('#section-photo-form [name=imagePosition]').selectOption('top');await page.locator('#section-photo-form [name=mobileImagePosition]').selectOption('bottom');await page.getByRole('button',{name:'Apply image',exact:true}).click();await page.locator('[data-section-photo=hero]').click();await page.locator('[data-stock-for=hero]').click();await page.locator('#stock-search').fill('bakery');assert.ok(await page.locator('[data-photo-url]:visible').count()>1);await page.locator('[data-photo-url="/stock/bakery.webp"]').click();
  assert.match(await page.locator('[name=image-hero]').inputValue(),/^\/stock\/bakery\.webp$/);await page.locator('[data-device=mobile]').click();await page.waitForTimeout(200);assert.equal(await page.locator('.studio-preview-wrap.mobile-preview').count(),1);assert.equal(await page.locator('#studio-preview-canvas .store-hero>.kit-media img').evaluate(el=>getComputedStyle(el).objectPosition),'50% 100%');
  await page.getByRole('button',{name:'Publish changes',exact:true}).click();assert.match(await page.locator('#toast.error').innerText(),/Save your changes/);
  const saved=page.waitForResponse(r=>r.url()===base+'/api/store'&&r.request().method()==='PATCH');await page.getByRole('button',{name:'Save homepage'}).click();assert.equal((await saved).status(),200);await page.locator('#studio-save-state').waitFor();
- await page.locator('[data-clear-photo=hero]').click();await page.getByRole('button',{name:'Save homepage'}).click();await page.locator('#studio-save-state').waitFor();assert.equal((await(await context.request.get(base+'/api/session')).json()).store.sections.find(s=>s.type==='hero').image,'','cleared photos stay cleared after saving');
- await page.getByRole('button',{name:'Products',exact:false}).click();await page.getByRole('button',{name:'Add product',exact:false}).click();await page.locator('[name=name]').fill('Cookie box');await page.locator('[name=price]').fill('900');await page.getByRole('button',{name:'Save product'}).click();await page.locator('td:has-text("Cookie box")').waitFor();
+ await page.locator('[data-section-photo=hero]').click();await page.locator('[data-clear-photo=hero]').click();await page.getByRole('button',{name:'Save homepage'}).click();await page.locator('#studio-save-state').waitFor();assert.equal((await(await context.request.get(base+'/api/session')).json()).store.sections.find(s=>s.type==='hero').image,'','cleared photos stay cleared after saving');
+ await page.locator('.sidebar [data-tab=products]').click();await page.getByRole('button',{name:'Add product',exact:false}).click();await page.locator('[name=name]').fill('Cookie box');await page.locator('[name=price]').fill('900');await page.getByRole('button',{name:'Save product'}).click();await page.locator('td:has-text("Cookie box")').waitFor();
  await page.getByRole('button',{name:'Store details',exact:false}).click();const image=await page.evaluate(()=>{const canvas=document.createElement('canvas');canvas.width=2000;canvas.height=1000;canvas.getContext('2d').fillRect(0,0,2000,1000);return canvas.toDataURL('image/png').split(',')[1]});
  await page.locator('[data-upload-target=banner]').setInputFiles({name:'test-banner.png',mimeType:'image/png',buffer:Buffer.from(image,'base64')});await page.waitForFunction(()=>document.querySelector('[name=banner]').value.startsWith('/uploads/'));const uploaded=await page.locator('[name=banner]').inputValue();const dimensions=await page.evaluate(async url=>{const bitmap=await createImageBitmap(await(await fetch(url)).blob());return [bitmap.width,bitmap.height]},uploaded);assert.deepEqual(dimensions,[1600,800]);
  await page.locator('.seo-settings summary').click();await page.locator('[name=seoTitle]').fill('Crumb Studio — Fresh bakes');await page.getByRole('button',{name:'Save store details'}).click();await page.locator('#settings-form').waitFor();
@@ -364,7 +367,7 @@ test('all 30 category photographs decode locally without external image requests
 
 test('product semantics, category filtering and uniform card geometry survive all five layouts',async()=>{
  const context=await browser.newContext({viewport:{width:1440,height:1000},reducedMotion:'reduce'}),page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
- const signup=await context.request.post(base+'/api/signup',{data:{email:'consistent-cards@example.com',password,slug:'consistent-cards',subscribed:true,details:{name:'Card Studio',theme:'fashion',whatsapp:'923001234567',delivery:200,businessMode:'retail'},sections:[{type:'categories',layout:5},{type:'featured',layout:5,text:'A collection introduction.'}]}});assert.equal(signup.status(),200,await signup.text());
+ const signup=await context.request.post(base+'/api/signup',{data:{email:'consistent-cards@example.com',password,slug:'consistent-cards',subscribed:true,details:{...businessDetails,name:'Card Studio',theme:'fashion',whatsapp:'923001234567',delivery:200,businessMode:'retail'},sections:[{type:'categories',layout:5},{type:'featured',layout:5,text:'A collection introduction.'}]}});assert.equal(signup.status(),200,await signup.text());
  for(const product of [{name:'Short name',description:'Original product description.',price:1800,images:['/stock/product-tshirt.webp'],category:'Clothing'},{name:'A deliberately longer product name that wraps onto two lines',description:'A detailed product description. '.repeat(15),price:2500,salePrice:2200,stock:0,images:['/stock/product-shirt.webp','/stock/product-tshirt.webp'],category:'Clothing'},{name:'Denim jeans',description:'',price:3200,images:['/stock/product-jeans.webp'],sizes:'S, M, L',colors:'Blue, Black',category:'Denim'},{name:'Product awaiting a photo',price:900,category:'Accessories',images:[]}])assert.equal((await context.request.post(base+'/api/products',{data:product})).status(),200);
  let sessionData=await(await context.request.get(base+'/api/session')).json();
  for(const layout of [1,2,3,4,5]){
@@ -387,7 +390,7 @@ test('product semantics, category filtering and uniform card geometry survive al
 });
 
 test('recipe previews use the same matching product catalogue as section thumbnails; platform logo is applied',async()=>{
- const context=await browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage();await page.goto(base+'/signup?kit=bakery');await page.locator('[name=email]').fill('recipe-consistency@example.com');await page.locator('[name=password]').fill(password);await page.getByRole('button',{name:'Continue'}).click();await page.locator('[name=slug]').fill('recipe-consistency');await page.locator('[name=name]').fill('Bakery Studio');await page.locator('[name=whatsapp]').fill('923001234567');await page.getByRole('button',{name:'Continue'}).click();
+ const context=await browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage();await page.goto(base+'/signup?kit=bakery');await page.locator('[name=email]').fill('recipe-consistency@example.com');await page.locator('[name=password]').fill(password);await page.getByRole('button',{name:'Continue'}).click();await page.locator('[name=slug]').fill('recipe-consistency');await page.locator('[name=name]').fill('Bakery Studio');await page.locator('[name=whatsapp]').fill('923001234567');await completeBusinessFields(page);await page.getByRole('button',{name:'Continue'}).click();
  const names=await page.locator('[data-section-type=featured] .layout-choice').first().locator('.store-product h3').allTextContents();assert.deepEqual(names,['Celebration cake','Chocolate-chip cookies','Seeded bread loaves','Chocolate dessert slices']);await page.locator('[data-recipe="4"]').click();assert.deepEqual(await page.locator('.modal .store-product h3').allTextContents(),names);assert.match(await page.locator('.modal .store-product .product-media img').first().getAttribute('src'),/product-cake/);await page.getByRole('button',{name:'Close',exact:true}).click();
  assert.equal(await page.locator('.nav .brand-symbol').getAttribute('src'),'/brand-mark.svg');const response=await context.request.get(base+'/brand-mark.svg');assert.equal(response.status(),200);assert.match(response.headers()['content-type'],/image\/svg\+xml/);assert.equal(await page.locator('link[rel=icon]').getAttribute('href'),'/brand-mark.svg');
  await page.goto(base+'/demo?kit=fashion&layout=4');assert.deepEqual(await page.locator('.store-product h3').allTextContents(),['White cotton T-shirt','White formal shirt','Denim jeans','Cream knitted wrap']);assert.equal(await page.locator('.store-brand .brand-symbol').count(),0,'merchant branding is separate from platform branding');await context.close();

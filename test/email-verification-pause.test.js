@@ -1,3 +1,4 @@
+import {businessDetails} from './fixtures.js';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
@@ -19,7 +20,7 @@ test('pausing verification preserves records, password reset and manual approval
  async function request(path,method='GET',body,cookie){const r=await fetch(base+path,{method,headers:{...(body?{'content-type':'application/json'}:{}),...(cookie?{cookie}:{})},body:body?JSON.stringify(body):undefined});return {status:r.status,data:await r.json(),cookie:r.headers.get('set-cookie')?.split(';')[0]}}
  const messages=()=>existsSync(join(dir,'test-outbox'))?readdirSync(join(dir,'test-outbox')).map(n=>JSON.parse(readFileSync(join(dir,'test-outbox',n),'utf8'))):[];
  const token=mail=>new URLSearchParams(new URL(mail.url).hash.slice(1)).get('token');
- const signup=(email,slug)=>request('/api/signup','POST',{email,password,slug,subscribed:true,details:{name:'Pause Shop',whatsapp:'923001234567',delivery:0},sections:[{type:'hero',layout:1}]});
+ const signup=(email,slug)=>request('/api/signup','POST',{email,password,slug,subscribed:true,details:{...businessDetails,name:'Pause Shop',whatsapp:'923001234567',delivery:0},sections:[{type:'hero',layout:1}]});
  try{
   await start();
   let r=await signup('owner@example.com','pause-shop');assert.equal(r.status,200);assert.equal(r.data.verificationEmailSent,false);let owner=r.cookie;

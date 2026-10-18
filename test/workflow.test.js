@@ -1,3 +1,4 @@
+import {businessDetails} from './fixtures.js';
 import {test,after,before} from 'node:test';
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
@@ -10,7 +11,7 @@ async function request(path,method='GET',body,cookie){const r=await fetch(base+p
 before(async()=>{child=spawn(process.execPath,['server.js'],{env:{...process.env,PORT:String(port),DATA_DIR:dir,NODE_ENV:'test',EMAIL_VERIFICATION_ENABLED:'true',EMAIL_TRANSPORT:'test',APP_URL:base,AUTO_BACKUPS:'false',ADMIN_EMAIL:'admin@example.com',ADMIN_PASSWORD:password},stdio:['ignore','pipe','pipe']});await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Server startup timed out')),10000);child.stdout.on('data',()=>{clearTimeout(timer);resolve()});child.on('exit',()=>reject(Error('Server exited')))});});
 after(()=>{child?.kill();rmSync(dir,{recursive:true,force:true});});
 test('complete account, approval, product, checkout and moderation workflow',async()=>{
-let r=await request('/api/signup','POST',{email:'owner@example.com',password,slug:'test-shop',subscribed:true,details:{name:'Test Shop',whatsapp:'923001234567',delivery:250},sections:[{type:'hero',layout:1},{type:'featured',layout:2}]});assert.equal(r.status,200);ownerCookie=r.cookie;
+let r=await request('/api/signup','POST',{email:'owner@example.com',password,slug:'test-shop',subscribed:true,details:{...businessDetails,name:'Test Shop',whatsapp:'923001234567',delivery:250},sections:[{type:'hero',layout:1},{type:'featured',layout:2}]});assert.equal(r.status,200);ownerCookie=r.cookie;
 r=await request('/api/session','GET',undefined,ownerCookie);assert.equal(r.data.user.role,'owner');assert.equal(r.data.store.status,'pending');store=r.data.store;
 r=await request('/api/public/test-shop');assert.equal(r.status,403);
 r=await request('/api/public/test-shop','GET',undefined,ownerCookie);assert.equal(r.status,200);
@@ -30,7 +31,7 @@ r=await request('/api/public/test-shop');assert.equal(r.status,200);assert.equal
 r=await request('/api/checkout','POST',{slug:'test-shop',name:'Customer',phone:'03001234567',address:'Lahore',items:[{id:product.id,quantity:2,size:'Small',color:'White',price:1}]});assert.equal(r.status,200);assert.equal(r.data.total,4250);assert.match(r.data.whatsapp,/https:\/\/wa.me\/923001234567/);order=r.data.id;
 r=await request('/api/orders','GET',undefined,ownerCookie);assert.equal(r.data.length,1);assert.equal(r.data[0].details.items[0].price,2000);
 r=await request('/api/orders/'+order,'PATCH',{status:'Delivered'},ownerCookie);assert.equal(r.status,200);
-r=await request('/api/store','PATCH',{details:{...store.details,name:'Updated Shop',logo:image},sections:[{type:'featured',layout:3,title:'Custom collection',text:'Our products'}]},ownerCookie);assert.equal(r.status,200);
+r=await request('/api/store','PATCH',{details:{...businessDetails,...store.details,name:'Updated Shop',logo:image},sections:[{type:'featured',layout:3,title:'Custom collection',text:'Our products'}]},ownerCookie);assert.equal(r.status,200);
 r=await request('/api/public/test-shop');assert.equal(r.data.store.details.name,'Test Shop','saved design changes remain private until published');
 r=await request('/api/store/publish','POST',{},ownerCookie);assert.equal(r.status,200);
 r=await request('/api/public/test-shop');assert.equal(r.data.store.status,'approved');assert.equal(r.data.store.details.name,'Updated Shop');assert.equal(r.data.store.sections[0].title,'Custom collection');assert.equal(r.data.store.details.logo,image);
@@ -62,15 +63,15 @@ r=await request('/api/orders','GET',undefined,r.cookie);assert.equal(r.data.leng
 
 test('scheme-less social links normalize on signup and updates; unsafe links are rejected', async () => {
  const signup={email:'links@example.com',password,slug:'links-shop',subscribed:true,
-  details:{name:'Link Shop',whatsapp:'923001234567',delivery:200,instagram:'  insta.com/abc  ',facebook:'facebook.com/myshop',website:'https://example.com/shop?ref=dukan'},sections:[{type:'contact',layout:1}]};
+  details:{...businessDetails,name:'Link Shop',whatsapp:'923001234567',delivery:200,instagram:'  insta.com/abc  ',facebook:'facebook.com/myshop',website:'https://example.com/shop?ref=dukan'},sections:[{type:'contact',layout:1}]};
  let r=await request('/api/signup','POST',signup);assert.equal(r.status,200);const cookie=r.cookie;
  r=await request('/api/session','GET',undefined,cookie);let details=r.data.store.details;
  assert.equal(details.instagram,'https://insta.com/abc');assert.equal(details.facebook,'https://facebook.com/myshop');assert.equal(details.website,'https://example.com/shop?ref=dukan');
- r=await request('/api/store','PATCH',{details:{...details,instagram:'',facebook:'//www.facebook.com/updated',website:'example.org/new'},sections:signup.sections},cookie);assert.equal(r.status,200);
+ r=await request('/api/store','PATCH',{details:{...businessDetails,...details,instagram:'',facebook:'//www.facebook.com/updated',website:'example.org/new'},sections:signup.sections},cookie);assert.equal(r.status,200);
  r=await request('/api/session','GET',undefined,cookie);details=r.data.store.details;
  assert.equal(details.instagram,'');assert.equal(details.facebook,'https://www.facebook.com/updated');assert.equal(details.website,'https://example.org/new');
  for(const bad of ['javascript:alert(1)','data:text/html,hello','not a link','https://user:pass@example.com','instagram']){
-  r=await request('/api/store','PATCH',{details:{...details,website:bad},sections:signup.sections},cookie);assert.equal(r.status,400,bad);
+  r=await request('/api/store','PATCH',{details:{...businessDetails,...details,website:bad},sections:signup.sections},cookie);assert.equal(r.status,400,bad);
  }
  r=await request('/api/session','GET',undefined,cookie);assert.equal(r.data.store.details.website,'https://example.org/new');
 });

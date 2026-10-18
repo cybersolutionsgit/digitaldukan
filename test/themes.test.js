@@ -1,3 +1,4 @@
+import {businessDetails} from './fixtures.js';
 import {test,before,after} from 'node:test';
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
@@ -18,20 +19,20 @@ test('niche recommendations handle category, a more specific niche and unknown b
  assert.equal(themeForNiche('Other','book repair service'),'other');
 });
 test('signup derives a free preset, preserves explicit choices and persists themes safely',async()=>{
- const body={email:'theme@example.com',password:'Theme-test-password-123',slug:'theme-shop',subscribed:true,details:{name:'Theme Shop',category:'Other',niche:'skincare',whatsapp:'923001234567',delivery:200,accent:'#123456'},sections:[{type:'hero',layout:3},{type:'contact',layout:1}]};
+ const body={email:'theme@example.com',password:'Theme-test-password-123',slug:'theme-shop',subscribed:true,details:{...businessDetails,name:'Theme Shop',category:'Other',niche:'skincare',whatsapp:'923001234567',delivery:200,accent:'#123456'},sections:[{type:'hero',layout:3},{type:'contact',layout:1}]};
  let r=await req('/api/signup','POST',body);assert.equal(r.status,200);const cookie=r.cookie;
  r=await req('/api/session','GET',undefined,cookie);const store=r.data.store;
  assert.equal(store.details.theme,'beauty');assert.equal(store.details.niche,'skincare');assert.equal(store.details.accent,'#123456');assert.equal(store.sections[0].layout,3);
- r=await req('/api/store','PATCH',{details:{...store.details,theme:'electronics'},sections:store.sections},cookie);assert.equal(r.status,200);
+ r=await req('/api/store','PATCH',{details:{...businessDetails,...store.details,theme:'electronics'},sections:store.sections},cookie);assert.equal(r.status,200);
  r=await req('/api/public/theme-shop','GET',undefined,cookie);assert.equal(r.data.store.details.theme,'electronics');assert.equal(r.data.store.details.accent,'#123456');
- r=await req('/api/store','PATCH',{details:{...store.details,theme:'malicious-css'},sections:store.sections},cookie);assert.equal(r.status,400);
- r=await req('/api/store','PATCH',{details:{...store.details,niche:'x'.repeat(201)},sections:store.sections},cookie);assert.equal(r.status,400);
+ r=await req('/api/store','PATCH',{details:{...businessDetails,...store.details,theme:'malicious-css'},sections:store.sections},cookie);assert.equal(r.status,400);
+ r=await req('/api/store','PATCH',{details:{...businessDetails,...store.details,niche:'x'.repeat(201)},sections:store.sections},cookie);assert.equal(r.status,400);
  const oldDetails={...store.details};delete oldDetails.theme;delete oldDetails.niche;
  r=await req('/api/store','PATCH',{details:oldDetails,sections:store.sections},cookie);assert.equal(r.status,200);
  r=await req('/api/session','GET',undefined,cookie);assert.equal(r.data.store.details.theme,'classic','updates to legacy details keep classic styling');
 });
 test('theme module is served locally and a new niche receives its palette when no color was chosen',async()=>{
- const r=await req('/api/signup','POST',{email:'food-theme@example.com',password:'Theme-test-password-123',slug:'food-theme',subscribed:true,details:{name:'Pantry',category:'Food & groceries',whatsapp:'923001234567',delivery:200},sections:[{type:'hero',layout:1}]});assert.equal(r.status,200);
+ const r=await req('/api/signup','POST',{email:'food-theme@example.com',password:'Theme-test-password-123',slug:'food-theme',subscribed:true,details:{...businessDetails,name:'Pantry',category:'Food & groceries',whatsapp:'923001234567',delivery:200},sections:[{type:'hero',layout:1}]});assert.equal(r.status,200);
  const session=await req('/api/session','GET',undefined,r.cookie);assert.equal(session.data.store.details.accent,themes.food.accent);
  const script=await fetch(base+'/themes.js');assert.equal(script.status,200);assert.match(script.headers.get('content-type'),/javascript/);
 });

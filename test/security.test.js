@@ -1,3 +1,4 @@
+import {businessDetails} from './fixtures.js';
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn, execFile } from 'node:child_process';
@@ -23,7 +24,7 @@ function database(fn){const db=new DatabaseSync(join(dir,'digitaldukan.sqlite'))
 function clearRates(){database(db=>db.exec('DELETE FROM rate_limits'))}
 
 test('verification gates approval and uses expiring, single-use, hashed tokens',async()=>{
- let r=await request('/api/signup','POST',{email:'owner@example.com',password,slug:'secure-shop',subscribed:true,details:{name:'Secure Shop',whatsapp:'923001234567',delivery:200},sections:[{type:'hero',layout:1}]});assert.equal(r.status,200);assert.equal(r.data.verificationEmailSent,true);ownerCookie=r.cookie;
+ let r=await request('/api/signup','POST',{email:'owner@example.com',password,slug:'secure-shop',subscribed:true,details:{...businessDetails,name:'Secure Shop',whatsapp:'923001234567',delivery:200},sections:[{type:'hero',layout:1}]});assert.equal(r.status,200);assert.equal(r.data.verificationEmailSent,true);ownerCookie=r.cookie;
  r=await request('/api/session','GET',undefined,ownerCookie);ownerId=r.data.user.id;storeId=r.data.store.id;assert.equal(r.data.user.emailVerified,false);
  r=await request('/api/login','POST',{email:'admin@example.com',password});adminCookie=r.cookie;
  r=await request('/api/admin/stores/'+storeId,'PATCH',{status:'approved'},adminCookie);assert.equal(r.status,400);
@@ -110,7 +111,7 @@ test('login throttling survives restart and cannot be bypassed using a forged fo
 
 test('one store owner cannot alter another store, products or orders',async()=>{
  clearRates();
- let r=await request('/api/signup','POST',{email:'other@example.com',password,slug:'other-shop',subscribed:true,details:{name:'Other Shop',whatsapp:'923001234567',delivery:200},sections:[{type:'featured',layout:1}]});assert.equal(r.status,200);const other=r.cookie;
+ let r=await request('/api/signup','POST',{email:'other@example.com',password,slug:'other-shop',subscribed:true,details:{...businessDetails,name:'Other Shop',whatsapp:'923001234567',delivery:200},sections:[{type:'featured',layout:1}]});assert.equal(r.status,200);const other=r.cookie;
  const rows=await request('/api/products','GET',undefined,ownerCookie);const product=rows.data[0];
  r=await request('/api/products','POST',{...product.details,id:product.id,name:'Unauthorized edit'},other);assert.equal(r.status,404);
  r=await request('/api/products/'+product.id,'DELETE',{},other);assert.equal(r.status,200);

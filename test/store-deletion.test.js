@@ -1,3 +1,4 @@
+import {businessDetails} from './fixtures.js';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
@@ -11,7 +12,7 @@ test('admin store deletion requires reauthentication and exact confirmation, is 
  const dir=mkdtempSync(join(tmpdir(),'dukan-delete-'));let server;
  async function request(path,method='GET',body,cookie){const r=await fetch(base+path,{method,headers:{...(body?{'content-type':'application/json'}:{}),...(cookie?{cookie}:{})},body:body?JSON.stringify(body):undefined});return {status:r.status,data:await r.json(),cookie:r.headers.get('set-cookie')?.split(';')[0]}}
  function database(fn){const db=new DatabaseSync(join(dir,'digitaldukan.sqlite'));try{return fn(db)}finally{db.close()}}
- const signup=(email,slug)=>request('/api/signup','POST',{email,password,slug,subscribed:true,details:{name:slug,whatsapp:'923001234567',delivery:0},sections:[{type:'hero',layout:1}]});
+ const signup=(email,slug)=>request('/api/signup','POST',{email,password,slug,subscribed:true,details:{...businessDetails,name:slug,whatsapp:'923001234567',delivery:0},sections:[{type:'hero',layout:1}]});
  const image={type:'image/png',data:'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aNmcAAAAASUVORK5CYII='};
  try{
   server=spawn(process.execPath,['server.js'],{env:{...process.env,PORT:'3489',DATA_DIR:dir,NODE_ENV:'test',EMAIL_VERIFICATION_ENABLED:'false',EMAIL_TRANSPORT:'test',APP_URL:base,AUTO_BACKUPS:'false',ADMIN_EMAIL:'admin@example.com',ADMIN_PASSWORD:password},stdio:['ignore','pipe','pipe']});
@@ -23,7 +24,7 @@ test('admin store deletion requires reauthentication and exact confirmation, is 
   r=await request('/api/upload','POST',image,owner);const privateImage=r.data.url;
   r=await request('/api/upload','POST',image,owner);const sharedImage=r.data.url;
   r=await request('/api/upload','POST',image,otherOwner);const otherImage=r.data.url;
-  r=await request('/api/store','PATCH',{details:{...otherStore.details,logo:sharedImage,banner:otherImage},sections:otherStore.sections},otherOwner);assert.equal(r.status,200);
+  r=await request('/api/store','PATCH',{details:{...businessDetails,...otherStore.details,logo:sharedImage,banner:otherImage},sections:otherStore.sections},otherOwner);assert.equal(r.status,200);
   r=await request('/api/products','POST',{name:'Delete product',price:1200,images:[privateImage]},owner);assert.equal(r.status,200);
   r=await request('/api/products','GET',undefined,owner);const productId=r.data[0].id;
   r=await request('/api/products','POST',{name:'Keep product',price:1800,images:[otherImage]},otherOwner);assert.equal(r.status,200);

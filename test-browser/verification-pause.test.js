@@ -1,3 +1,4 @@
+import {businessDetails} from '../test/fixtures.js';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
@@ -13,7 +14,7 @@ test('paused verification disappears from owner/admin workflows and old links ex
   await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Startup timeout')),10000);server.stdout.once('data',()=>{clearTimeout(timer);resolve()});server.once('exit',()=>{clearTimeout(timer);reject(Error('Server exited'))})});
   browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||(existsSync('/usr/bin/chromium')?'/usr/bin/chromium':undefined),headless:true,args:['--no-sandbox']});
   const context=await browser.newContext(),page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
-  const signup=await context.request.post(base+'/api/signup',{data:{email:'owner@example.com',password,slug:'pause-browser',subscribed:true,details:{name:'Pause Browser Shop',whatsapp:'923001234567',delivery:0},sections:[{type:'hero',layout:1}]}});assert.equal(signup.status(),200);
+  const signup=await context.request.post(base+'/api/signup',{data:{email:'owner@example.com',password,slug:'pause-browser',subscribed:true,details:{...businessDetails,name:'Pause Browser Shop',whatsapp:'923001234567',delivery:0},sections:[{type:'hero',layout:1}]}});assert.equal(signup.status(),200);
   await page.goto(base+'/dashboard');await page.locator('.launch-checklist').waitFor();
   assert.equal(await page.locator('.verification-notice,[data-action="resend-verification"]').count(),0);
   assert.equal(await page.getByText('Verify your account email',{exact:true}).count(),0);
