@@ -1,5 +1,20 @@
 // Roman Urdu interface copy. Merchant content and input values are never translated.
 export const interfaceTranslations={
+  "A BIG MOMENT FOR YOUR BUSINESS": "AAPKE BUSINESS KI NAYI SHURUAT",
+  "Congratulations!": "Mubarak ho!",
+  "Your website is ready.": "Aapki website ban gayi hai.",
+  "Your store has been created and sent to the admin for approval. Your website will open to customers and receive orders after approval.": "Aapka store ban gaya hai aur admin ko approval ke liye bhej diya hai. Approval ke baad customers aapki website dekh aur orders bhej sakein ge.",
+  "Waiting for admin approval": "Admin ke approval ka intezar hai",
+  "You can add products and edit your website in the dashboard while you wait.": "Tab tak dashboard mein products add karein aur apni website sajayein.",
+  "Your website link": "Aapki website ka link",
+  "Copy link": "Link copy karein",
+  "Your next customer could find you today.": "Apne customers ko apni nayi dukan batayein.",
+  "Add this link to your Instagram, Facebook and WhatsApp profiles now. Tell people your store is coming soon. Once approved, they can visit your website and send orders on WhatsApp.": "Ye link abhi apne Instagram, Facebook aur WhatsApp profile mein laga dein. Logon ko batayein ke aapka store jald khul raha hai. Approval ke baad woh website se WhatsApp par orders bhej sakein ge.",
+  "Until approval, this link opens a private preview only for you. Customers cannot view the store or place orders yet.": "Approval tak is link par sirf aap apni website ka preview dekh sakte hain. Customers abhi store nahi dekh sakte aur order nahi kar sakte.",
+  "Go to my dashboard": "Mera dashboard kholein",
+  "Preview my website": "Meri website dekhein",
+  "Copy did not work. Select and copy your website link.": "Link copy nahi hua. Apni website ka link select karke copy karein.",
+
   "Your niche": "Aapki niche",
   "Show password": "Password dikhayein",
   "Hide password": "Password chupayein",

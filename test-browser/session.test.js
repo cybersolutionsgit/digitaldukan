@@ -144,7 +144,7 @@ test('signup and editor previews show real layouts and persist a preview selecti
   await page.getByRole('button',{name:'Continue'}).click();
   await page.locator('[name=subscribed]').check();
   await page.getByRole('button',{name:'Subscribe'}).click();
-  await page.waitForURL(base+'/dashboard');
+  await page.waitForURL(base+'/welcome');await page.locator('.welcome-actions a[href="/dashboard"]').click();await page.waitForURL(base+'/dashboard');
   await page.getByRole('button',{name:'Store editor',exact:false}).click();
   await page.locator('[data-section-type=hero]').waitFor();
   assert.equal(await page.locator('[name=layout-hero][value="3"]').isChecked(),true);
@@ -297,7 +297,7 @@ test('niche signup suggests local themes, keeps customization and saves the chos
  await page.locator('[data-action=suggest-sections]').click();assert.equal(await page.locator('[name=layout-hero][value="2"]').isChecked(),true);
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
  await page.screenshot({path:'/tmp/digitaldukan-niche-mobile.png',fullPage:true});
- await page.getByRole('button',{name:'Continue'}).click();await page.locator('[name=subscribed]').check();await page.getByRole('button',{name:'Subscribe'}).click();await page.waitForURL(base+'/dashboard');
+ await page.getByRole('button',{name:'Continue'}).click();await page.locator('[name=subscribed]').check();await page.getByRole('button',{name:'Subscribe'}).click();await page.waitForURL(base+'/welcome');await page.locator('.welcome-actions a[href="/dashboard"]').click();await page.waitForURL(base+'/dashboard');
  let stored=await(await context.request.get(base+'/api/session')).json();assert.equal(stored.store.details.theme,'beauty');assert.equal(stored.store.details.accent,'#123456');
  await page.getByRole('button',{name:'Store details',exact:false}).click();await page.locator('[name=theme]').selectOption('electronics');
  const saved=page.waitForResponse(r=>r.url()===base+'/api/store'&&r.request().method()==='PATCH');await page.getByRole('button',{name:'Save store details'}).click();assert.equal((await saved).status(),200);
@@ -327,7 +327,7 @@ test('premium studio supports complete recipes, section photos, live edits, undo
  await page.locator('[name=email]').fill('premium-studio@example.com');await page.locator('[name=password]').fill(password);await page.getByRole('button',{name:'Continue'}).click();assert.equal(await page.locator('[name=theme]').inputValue(),'bakery');
  await page.locator('[name=name]').fill('Crumb Studio');await page.locator('[name=slug]').fill('premium-studio');await page.locator('[name=whatsapp]').fill('923001234567');await completeBusinessFields(page);await page.getByRole('button',{name:'Continue'}).click();
  await page.locator('[data-recipe="3"]').click();await page.getByRole('dialog').waitFor();assert.ok(await page.locator('.modal .store-layout-4').count()>1);await page.getByRole('button',{name:'Use this homepage'}).click();assert.equal(await page.locator('[name=layout-hero][value="4"]').isChecked(),true);assert.equal(await page.locator('.layout-choice').count(),40);
- await page.getByRole('button',{name:'Continue'}).click();await page.locator('[name=subscribed]').check();await page.getByRole('button',{name:'Subscribe'}).click();await page.waitForURL(base+'/dashboard',{timeout:10000}).catch(async error=>{throw new Error((await page.locator('.form-error').innerText())||error.message)});await page.locator('.launch-checklist').waitFor();
+ await page.getByRole('button',{name:'Continue'}).click();await page.locator('[name=subscribed]').check();await page.getByRole('button',{name:'Subscribe'}).click();await page.waitForURL(base+'/welcome');await page.locator('.welcome-actions a[href="/dashboard"]').click();await page.waitForURL(base+'/dashboard',{timeout:10000}).catch(async error=>{throw new Error((await page.locator('.form-error').innerText())||error.message)});await page.locator('.launch-checklist').waitFor();
  await page.getByRole('button',{name:'Store editor',exact:false}).click();await page.locator('#studio-preview-canvas .store-hero').waitFor();
  await page.locator('#studio-preview-canvas h1').fill('Fresh from our oven');await page.locator('#studio-preview-canvas h1').blur();await page.waitForFunction(()=>document.querySelector('#studio-preview-canvas h1')?.textContent==='Fresh from our oven');
  await page.getByRole('button',{name:'Undo',exact:true}).click();assert.equal(await page.locator('[name=title-hero]').inputValue(),'');await page.locator('#studio-preview-canvas h1').fill('Fresh from our oven');await page.locator('#studio-preview-canvas h1').blur();
